@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Resolve External Job Context"
+  short_description: "Resolve company identity and canonical job URLs"
+  default_prompt: "Use $torre-resolve-external-job-context to turn a selected external role into trustworthy company identifiers and canonical job inputs before building a Torre ingest request."

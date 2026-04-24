@@ -1,0 +1,4 @@
+interface:
+  display_name: "Using Torre Agent Skills"
+  short_description: "Choose the right Torre job skill for the task"
+  default_prompt: "Use $using-torre-agent-skills to decide whether this Torre job workflow should start with selection, context resolution, single-job publishing, or long-running batch operations."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Post External Jobs"
+  short_description: "Select, resolve, and publish external jobs to Torre"
+  default_prompt: "Use $torre-post-external-jobs to choose between single-request and batch-run operation, select jobs from a source page or raw inputs, resolve company identity and canonical URLs, and prepare valid Torre ingest requests."

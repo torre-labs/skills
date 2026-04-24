@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Select External Jobs"
+  short_description: "Shortlist jobs from pages or criteria"
+  default_prompt: "Use $torre-select-external-jobs to turn a jobs page or filter into a confirmed shortlist of roles to prepare for Torre publication."

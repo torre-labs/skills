@@ -1,0 +1,17 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Generated runs and local artifacts
+/output/
+*.log
+*.tmp
+.DS_Store
+
+# Local tools and scratch folders
+/tools/
+
+# Local installed skill copy
+/.codex/
+/.claude/

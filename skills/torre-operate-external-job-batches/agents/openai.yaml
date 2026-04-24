@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Operate External Job Batches"
+  short_description: "Run durable external-job publication batches"
+  default_prompt: "Use $torre-operate-external-job-batches to choose browser or link intake, create a durable batch run folder, track a resumable queue, and manage long-running Torre ingest work safely."
