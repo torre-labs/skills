@@ -4,6 +4,8 @@ These are minimal, high-signal request bodies for:
 
 - `POST $TORRE_API_URL/crawling/ingest`
 
+Use `TORRE_API_URL=https://crawl.torre.ai/api` by default unless the operator explicitly asks for another environment.
+
 ## Curl Template
 
 ```bash

@@ -21,6 +21,8 @@ Provide as much of this evidence as is available:
 - optional `subtorre`
 - any failure reason from the previous resolve attempt
 
+For fallback use, `snapshot_html` and `snapshot_text` should come from the browser/source remediation pass after the failed resolve attempt. Do not rely only on a listing-card snippet when the canonical job page is readable.
+
 ## System Prompt
 
 Act as a precise job-post extraction API. Convert the supplied job post into a single Torre-ready `job.publish_payload` JSON object.
@@ -146,4 +148,5 @@ Before submitting:
 - Confirm `organizations` points to the Torre company created or resolved in the company step.
 - Confirm `sharers` contains the intended `sharer_gg_id`.
 - Confirm generated `details.content` has candidate-facing role information, not form or legal boilerplate.
+- Confirm the evidence came from a current browser/source read of the failed role, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.

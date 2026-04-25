@@ -46,9 +46,31 @@ skills/
 
 Each skill folder includes a `SKILL.md` file with the instructions an agent should follow.
 
+## Installation
+
+Install the Torre.ai skills package with:
+
+```bash
+npx skills add torre-labs/skills
+```
+
+After installing, start with the entrypoint skill. Use the invocation style for
+your agent:
+
+```text
+Codex/OpenAI: $using-torre-agent-skills
+Claude: /using-torre-agent-skills
+```
+
 ## API Access
 
 Some Torre.ai workflows require API access.
+
+Use this base URL by default:
+
+```text
+https://crawl.torre.ai/api
+```
 
 To request an API token, write to [juanfer@torre.ai](mailto:juanfer@torre.ai).
 

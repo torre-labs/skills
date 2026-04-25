@@ -19,13 +19,13 @@ This skill coordinates:
 
 ## Required Variables
 
-- `TORRE_API_URL`: Torre API URL, usually the base API path such as `https://your-domain.tld/api`
 - `TORRE_API_KEY`: Torre API Key used in the `Authorization: Bearer ...` header. This key must be provisioned by Torre for the trusted ingest API and must remain active.
 
 ## Recommended Session Defaults
 
 Capture these once when they are available:
 
+- `TORRE_API_URL`: Default to `https://crawl.torre.ai/api`. Do not ask the user for this unless they explicitly need a different environment.
 - `default_sharer_gg_id`: Reuse for every selected job unless the user overrides it per job.
 - `default_subtorre`: Optional default subtorre slug for selected jobs.
 - `status_poll_interval_ms`: Default to `2000`. Never poll faster than `1000`.
@@ -98,6 +98,8 @@ Open [references/payload-examples.md](references/payload-examples.md) for reques
 
 Use this only after a `resolve_and_publish` request reaches a terminal failure or returns an error that means the API could not assemble one side. Do not use it when the source is weak, the job is closed, the company identity is ambiguous, or Torre rejected a direct payload that was already submitted.
 
+Hard rule: a recoverable resolve failure is not finished until you either run a browser/source remediation pass or record why browser remediation is impossible. URL rewriting, blind retries, and another `resolve_and_publish` request do not count as fallback.
+
 1. Preserve the failed request evidence:
    - original `request_id`
    - terminal state or error
@@ -107,11 +109,28 @@ Use this only after a `resolve_and_publish` request reaches a terminal failure o
    - company failed before Torre organization was available: build `company.publish_payload` and retry with `company.direct_publish`
    - company succeeded and returned `torre_id`, but job failed: keep `company.resolve_and_publish` with `company.input.torre_id` and build `job.publish_payload`
    - both failed but both source blocks are strong: build both direct payloads and use `company.direct_publish + job.direct_publish`
-3. Build fallback payloads from the Spider extraction prompts:
+3. Run browser/source remediation for each recoverable failed row:
+   - open the exact canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
+   - follow redirects to the stable role page
+   - close login, cookie, and overlay interruptions when possible
+   - extract fresh `snapshot_text`, `snapshot_html`, page title, canonical URL, and visible company signals
+   - if the browser cannot access the page, try the public ATS/API source only when it returns the full job description
+   - if neither browser nor source API exposes enough role content, mark `manual_review` with the blocker
+4. Build fallback payloads from the extraction references:
    - company: use [references/company-direct-publish-prompt.md](references/company-direct-publish-prompt.md)
    - job: use [references/job-direct-publish-prompt.md](references/job-direct-publish-prompt.md)
-4. Submit the fallback with a new `request_id`. Do not reuse the failed request id because the body shape changed.
-5. Record the fallback result separately from the first resolve attempt so the run can report both first-pass effectiveness and final effectiveness.
+5. Submit the fallback with a new `request_id`. Do not reuse the failed request id because the body shape changed.
+6. Record the fallback result separately from the first resolve attempt so the run can report both first-pass effectiveness and final effectiveness.
+
+Treat these resolve failures as recoverable until browser remediation proves otherwise:
+
+- timeout while fetching the role page
+- missing opportunity id
+- extraction failed or empty extracted payload
+- location/place validation mismatch
+- weak job text from a redirect or listing page
+
+Do not mark a recoverable row as final `failed` while it still has a readable role page that has not been opened and converted into a direct payload.
 
 ### 6. Submit and poll carefully
 
@@ -177,6 +196,8 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - Ignoring the company-only path when `job` is intentionally absent
 - Marking a trustworthy resolve failure as final before trying the `direct_publish` fallback
 - Reusing the failed resolve `request_id` for a fallback request with a different payload
+- Retrying `resolve_and_publish` in bulk and calling that fallback
+- Ending a batch with recoverable failures before opening the failed jobs in a browser/source remediation pass
 - Running a large publication batch without a persistent queue/report
 
 ## References

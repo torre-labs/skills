@@ -19,6 +19,8 @@ Provide as much of this evidence as is available:
 - `html_content` or clean page text
 - any failure reason from the previous resolve attempt
 
+For fallback use, prefer evidence captured during the browser/source remediation pass after the failed resolve attempt. Stale discovery snippets are not enough when the company or role page is still readable.
+
 ## System Prompt
 
 You are a careful company information extractor. Build a Torre-ready organization payload using only explicit evidence from the supplied source.
@@ -81,4 +83,5 @@ Before submitting:
 - Confirm `websiteUrl` is not an ATS provider, search result, or listing index.
 - Confirm `identifierLink` is not a personal LinkedIn profile.
 - Confirm the selected name matches the job/company source.
+- Confirm the company evidence came from a current browser/source read, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.

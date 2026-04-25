@@ -19,10 +19,13 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 7. If the company succeeds but the job fails in the resolve path and you can assemble a Torre-ready opportunity payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
 8. Every fallback request with a different strategy or body shape must use a new `request_id`.
 9. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
+10. For recoverable job failures, browser/source remediation is required before final failure classification.
 
 ## Fallback Policy After Resolve Failure
 
 Use fallback when the first request reached a terminal failure but the source evidence is still good enough to publish manually through the API.
+
+Before building `job.direct_publish`, open the canonical job URL in a browser or equivalent source reader and capture current role evidence. Use stale listing snippets only as supporting metadata, not as the primary direct-publish source.
 
 | Failure point | Fallback request |
 | --- | --- |
@@ -39,6 +42,14 @@ Do not fallback when:
 - direct publish was already attempted and Torre rejected the payload
 - the request is missing `sharer_gg_id` for job publication
 - the run policy excludes the role, such as remote-only runs encountering hybrid or physical jobs
+
+Recoverable errors that should trigger browser/source remediation:
+
+- timeout while resolving or crawling the job page
+- missing opportunity id
+- extraction returned empty or unusable job content
+- place/location validation failed
+- the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
 
 ## Company-Only Paths
 

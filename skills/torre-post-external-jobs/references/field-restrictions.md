@@ -5,6 +5,8 @@ Use this file when you need the public request contract for:
 - `POST $TORRE_API_URL/crawling/ingest`
 - `GET $TORRE_API_URL/crawling/ingest/status/<request-id>`
 
+Default `TORRE_API_URL` to `https://crawl.torre.ai/api`. Only override it for an explicitly provided alternate environment.
+
 Clients should use the canonical field names documented here.
 
 ## Top-Level Rules

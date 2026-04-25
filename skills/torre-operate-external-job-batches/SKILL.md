@@ -78,6 +78,7 @@ Write `run.md` with:
 - intake mode
 - source URLs
 - selection filters
+- `TORRE_API_URL`, defaulting to `https://crawl.torre.ai/api`
 - `default_sharer_gg_id`
 - optional `default_subtorre`
 - `submission_interval_ms`
@@ -106,6 +107,9 @@ Minimum fields per row:
 - `attempts`
 - `resolve_request_id`
 - `fallback_request_id`
+- `fallback_strategy`
+- `browser_snapshot_path`
+- `fallback_blocked_reason`
 - `last_error`
 - `last_resolve_error`
 - `last_fallback_error`
@@ -147,15 +151,24 @@ Recommended statuses:
 - when the resolve request succeeds, update terminal outcomes as `posted` or `skipped`
 - when the resolve request fails but the source is still trustworthy, move the row to `fallback_ready` instead of `failed`
 - update `failed` or `manual_review` only after the fallback path has also been evaluated
+- do not treat bulk retries of `resolve_and_publish` as fallback; they are still first-path retries
 
 #### Fallback
 
-- use `torre-post-external-jobs` fallback rules to build `company.direct_publish`, `job.direct_publish`, or both
+- for every `fallback_ready` row, run browser/source remediation before building the fallback payload:
+  - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
+  - capture the final URL, page title, visible job text, and HTML when available
+  - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
+  - if browser access is blocked, try the public ATS/API source only when it returns the full job description
+  - if neither source exposes enough role content, set `fallback_blocked_reason` and move the row to `manual_review`
+- use `torre-post-external-jobs` fallback rules to build `company.direct_publish`, `job.direct_publish`, or both from the remediated evidence
 - assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
 - move rows to `fallback_submitted` or `fallback_polling`
 - preserve the first-pass failure in `last_resolve_error`
 - preserve fallback failures separately in `last_fallback_error`
 - count first-pass resolve effectiveness and final effectiveness separately in `report.md`
+- a batch is not complete while any row remains in `fallback_ready`, `fallback_submitted`, or `fallback_polling`
+- if more than 10% of selected jobs fail first-pass resolve, pause broad retries and run the browser remediation pass on a representative chunk before continuing
 
 ### 6. Checkpoint after every chunk
 
@@ -194,6 +207,9 @@ Example row:
   "request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "resolve_request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "fallback_request_id": null,
+  "fallback_strategy": null,
+  "browser_snapshot_path": null,
+  "fallback_blocked_reason": null,
   "status": "polling",
   "attempts": 1,
   "last_error": null,
@@ -226,6 +242,7 @@ Include these effectiveness metrics:
 - first-pass posted rate from `resolve_and_publish`
 - fallback attempted count
 - fallback posted rate
+- fallback blocked count and reasons
 - final posted rate after fallback
 
 Also keep short sections for:
@@ -234,6 +251,7 @@ Also keep short sections for:
 - latest successful chunk
 - repeated failure reasons
 - repeated fallback failure reasons
+- browser/source remediation coverage
 - items needing manual follow-up
 
 ## Rate and Load Guardrails
@@ -315,6 +333,7 @@ This example is intentionally sequential. If a run needs more throughput, first 
 | Backend is under pressure | Slow polling and reduce chunk size |
 | Any request returns `429` | Pause the whole run, keep the row retryable, and retry later |
 | Resolve fails but source is trustworthy | Move row to `fallback_ready` and try direct fallback |
+| Many rows fail with timeout, missing opportunity id, extraction failure, or validation errors | Open failed jobs in browser/source remediation and build direct payloads |
 
 ## Common Mistakes
 
@@ -327,3 +346,5 @@ This example is intentionally sequential. If a run needs more throughput, first 
 - Reprocessing already terminal rows on resume
 - Publishing before the queue has a confirmed selected set
 - Assuming `playwright` is always the right browser path
+- Treating URL rewriting or another resolve retry as the pass-through fallback
+- Ending the run with recoverable failed rows that were never opened in browser/source remediation
