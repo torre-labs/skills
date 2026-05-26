@@ -115,6 +115,7 @@ At least one of these must be present:
 - `title_hint`
 - `language_hint`
 - `sharer_gg_id`
+- `crawled`
 - `metadata`
 
 ### Content precedence
@@ -136,6 +137,8 @@ If manual content and `job_url` are both present:
 - If `job_url` is missing, the request may still process the job but cannot publish it.
 - Do not use board indexes or listing homepages as `job_url`.
 - If the caller wants explicit sharer attribution in this strategy, use `job.input.sharer_gg_id`.
+- `job.input.crawled` is an optional boolean. Omit it for the API default of `true`; send `false` only when the operator or source explicitly says the resulting opportunity should not be marked as crawled.
+- `crawled` is publication metadata, not a reason to switch away from `resolve_and_publish`.
 
 ## `job.direct_publish`
 
@@ -162,6 +165,7 @@ Treat this as a Torre-ready payload, not just a URL. In practice that usually in
 
 - Use this only when the opportunity payload is already Torre-ready.
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.
+- `job.publish_payload.opportunity.crawled` is optional. Omit it for the API default of `true`; preserve an explicit boolean when the source payload already provides one.
 
 ## `job.subtorre`
 

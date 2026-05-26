@@ -33,7 +33,9 @@ Rules:
 - Do not invent compensation, location, skills, language requirements, company identifiers, or application URLs.
 - Preserve all role-relevant content in `details`.
 - Exclude navigation, application forms, cookie banners, legal boilerplate, and repeated page chrome.
-- Keep `intent` as `"post-job"`, `crawled` as `true`, `published` as `true`, and `crawledSource` as `"external"` unless the operator provided another valid source type.
+- Keep `intent` as `"post-job"` and `published` as `true`.
+- Set `crawled` from an explicit operator/source boolean when provided; otherwise omit it or use `true`. Use `false` only when the operator or source explicitly marks the opportunity as non-crawled.
+- Keep `crawledSource` as `"external"` unless the operator provided another valid source type.
 - Use `job_url` as `opportunity.externalApplicationUrl` only when it is a canonical role page. Do not use an aggregator/listing index.
 - Put the provided sharer under `opportunity.sharers`.
 - Return only a single JSON object. Do not include markdown.

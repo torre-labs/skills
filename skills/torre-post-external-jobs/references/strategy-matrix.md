@@ -17,9 +17,10 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 5. If you know the company is already published and you have its `torre_id`, use `company.resolve_and_publish` with `company.input.torre_id` and keep the job on `resolve_and_publish` by default.
 6. If the company fails in the resolve path and you can assemble a trustworthy Torre-ready organization payload, switch only the company to `company.direct_publish`.
 7. If the company succeeds but the job fails in the resolve path and you can assemble a Torre-ready opportunity payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
-8. Every fallback request with a different strategy or body shape must use a new `request_id`.
-9. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
-10. For recoverable job failures, browser/source remediation is required before final failure classification.
+8. Do not choose `job.direct_publish` only to control `crawled`; `job.resolve_and_publish` supports optional `job.input.crawled`.
+9. Every fallback request with a different strategy or body shape must use a new `request_id`.
+10. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
+11. For recoverable job failures, browser/source remediation is required before final failure classification.
 
 ## Fallback Policy After Resolve Failure
 
@@ -113,6 +114,7 @@ Use when the job must be derived from:
 - `job_url`
 - `raw_text`
 - `raw_html`
+- optional `crawled` metadata, when the operator or source explicitly provides a boolean
 
 ### `job.direct_publish`
 

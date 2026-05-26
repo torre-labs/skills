@@ -102,6 +102,7 @@ Minimum fields per row:
 - `job_title`
 - `canonical_company_url`
 - `canonical_job_url`
+- `crawled`
 - `request_id`
 - `status`
 - `attempts`
@@ -114,6 +115,8 @@ Minimum fields per row:
 - `last_resolve_error`
 - `last_fallback_error`
 - `last_status_check_at`
+
+Use `crawled` as a nullable boolean in the queue. Keep it `null` when the source/operator did not specify it, because the ingest API defaults omitted `crawled` values to `true`.
 
 Recommended statuses:
 
@@ -204,6 +207,7 @@ Example row:
   "job_title": "Senior Backend Engineer",
   "canonical_company_url": "https://acme.com",
   "canonical_job_url": "https://jobs.acme.com/backend-engineer",
+  "crawled": null,
   "request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "resolve_request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "fallback_request_id": null,

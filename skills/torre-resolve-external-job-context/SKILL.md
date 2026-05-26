@@ -31,6 +31,7 @@ Prefer these signals in order:
 - Third-party board indexes are not canonical job URLs.
 - If the selected source is a YC or HN listing, drill into the company or role page first and extract the actual company website or the real role page.
 - If no trustworthy job URL exists but the job content is trustworthy, keep `raw_text` or `raw_html` and omit `job_url`.
+- If the operator or source explicitly says the resulting opportunity is non-crawled, carry `crawled: false` into `job.input`; otherwise omit `crawled` so the ingest API defaults it to `true`.
 
 ### 3. Pick the usable request shape
 
@@ -53,6 +54,7 @@ Prefer these signals in order:
 | `company.input.careers_url` | Company or ATS careers surface |
 | `job.input.job_url` | Canonical role page |
 | `job.input.raw_text` / `raw_html` | Trusted role content when URL is weak |
+| `job.input.crawled` | Optional boolean provenance flag; omit for API default `true` |
 
 ## Common Mistakes
 

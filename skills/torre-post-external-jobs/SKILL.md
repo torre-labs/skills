@@ -78,6 +78,7 @@ Use `torre-resolve-external-job-context` before choosing the request strategy.
 - Use `job.direct_publish` only when the opportunity payload is already Torre-ready.
 - If the company is already known in Torre and you have `torre_id`, prefer `company.resolve_and_publish` with that identifier before considering `company.direct_publish`.
 - If manual content and `job_url` are both available, keep both. Manual content is the extraction source; `job_url` stays as the canonical URL.
+- Do not switch to `job.direct_publish` only to control whether the opportunity is marked as crawled. `job.resolve_and_publish` accepts optional `job.input.crawled`; omitting it keeps the default as `true`.
 - Treat `resolve_and_publish` failure as a routing event, not as the end of the attempt. When the source material is still trustworthy, prepare a `direct_publish` fallback payload and submit a new request with a new `request_id`.
 
 Open [references/strategy-matrix.md](references/strategy-matrix.md) and [references/field-restrictions.md](references/field-restrictions.md) when you need the contract details.
@@ -91,6 +92,8 @@ Open [references/strategy-matrix.md](references/strategy-matrix.md) and [referen
 - optional `job.subtorre` lives directly under `job`
 - `job.input.sharer_gg_id` is the sharer field for `job.resolve_and_publish`
 - `job.publish_payload.opportunity.sharers` is the sharer field for `job.direct_publish`
+- `job.input.crawled` is optional for `job.resolve_and_publish`; omit it unless the operator or source explicitly provides a boolean. Omitted means the API defaults the final opportunity to `crawled: true`.
+- `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean when provided.
 
 Open [references/payload-examples.md](references/payload-examples.md) for request bodies.
 
@@ -169,6 +172,7 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
   - `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - `job.publish_payload.opportunity.sharers` for `job.direct_publish`
 - Do not put `subtorre` inside `job.input` or `job.publish_payload`; use `job.subtorre`.
+- Do not force `crawled: true` when the operator or source explicitly provided `crawled: false`.
 - Do not reuse the same `request_id` with a different payload.
 
 ## Quick Reference
@@ -199,6 +203,7 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - Retrying `resolve_and_publish` in bulk and calling that fallback
 - Ending a batch with recoverable failures before opening the failed jobs in a browser/source remediation pass
 - Running a large publication batch without a persistent queue/report
+- Choosing `job.direct_publish` only because a non-crawled opportunity is needed; `job.resolve_and_publish` can receive optional `job.input.crawled: false`
 
 ## References
 

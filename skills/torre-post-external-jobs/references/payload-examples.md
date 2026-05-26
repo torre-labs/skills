@@ -76,7 +76,8 @@ The same `TORRE_API_KEY` must be active for both the submit and status calls. If
       "job_url": "https://jobs.acme.com/backend-engineer",
       "title_hint": "Senior Backend Engineer",
       "raw_text": "Acme is hiring a remote Senior Backend Engineer to build APIs, async systems, and platform services.",
-      "sharer_gg_id": "16180"
+      "sharer_gg_id": "16180",
+      "crawled": false
     }
   }
 }
@@ -313,6 +314,8 @@ Use this when the previous request produced a Torre organization id but the job 
 - When switching from `resolve_and_publish` to a direct fallback, always use a new `request_id`.
 - If the company is already known in Torre, prefer `company.resolve_and_publish` with `company.input.torre_id`.
 - If `job.resolve_and_publish` includes both `job_url` and manual content, keep both.
+- `job.input.crawled` is optional for `job.resolve_and_publish`; omit it for the API default of `true`, or send `false` when the operator/source explicitly marks the opportunity as non-crawled.
+- `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean already present in a Torre-ready payload.
 - If you need explicit sharer attribution:
   - use `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - use `job.publish_payload.opportunity.sharers` for `job.direct_publish`
