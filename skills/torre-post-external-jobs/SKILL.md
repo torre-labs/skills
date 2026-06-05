@@ -94,6 +94,8 @@ Open [references/strategy-matrix.md](references/strategy-matrix.md) and [referen
 - `job.publish_payload.opportunity.sharers` is the sharer field for `job.direct_publish`
 - `job.input.crawled` is optional for `job.resolve_and_publish`; omit it unless the operator or source explicitly provides a boolean. Omitted means the API defaults the final opportunity to `crawled: true`.
 - `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean when provided.
+- `job.publish_payload.opportunity.members` is optional for `job.direct_publish`, but when present it must be an array of Torre-ready member objects, not raw ggIds or names. If you cannot build valid member objects, send `members: []`.
+- Each direct-publish member object must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`) plus `manager`, `poster`, `member`, `status`, `visible`, and `position`. Use `status: "accepted"` only for confirmed members; otherwise use `"pending"`.
 
 Open [references/payload-examples.md](references/payload-examples.md) for request bodies.
 
@@ -173,6 +175,8 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
   - `job.publish_payload.opportunity.sharers` for `job.direct_publish`
 - Do not put `subtorre` inside `job.input` or `job.publish_payload`; use `job.subtorre`.
 - Do not force `crawled: true` when the operator or source explicitly provided `crawled: false`.
+- Do not place `members` at the top level of `job.publish_payload`; it belongs at `job.publish_payload.opportunity.members`.
+- Do not send `members` as `["ggid"]`, `{ "ggId": "..." }`, or partial objects missing required booleans/status/position. Use full member objects or `members: []`.
 - Do not reuse the same `request_id` with a different payload.
 
 ## Quick Reference
@@ -204,6 +208,7 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - Ending a batch with recoverable failures before opening the failed jobs in a browser/source remediation pass
 - Running a large publication batch without a persistent queue/report
 - Choosing `job.direct_publish` only because a non-crawled opportunity is needed; `job.resolve_and_publish` can receive optional `job.input.crawled: false`
+- Sending malformed `job.publish_payload.opportunity.members`; use full member objects with a resolvable identity, or an empty array when no valid members are available
 
 ## References
 

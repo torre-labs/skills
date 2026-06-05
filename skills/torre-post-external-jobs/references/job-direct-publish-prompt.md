@@ -38,6 +38,8 @@ Rules:
 - Keep `crawledSource` as `"external"` unless the operator provided another valid source type.
 - Use `job_url` as `opportunity.externalApplicationUrl` only when it is a canonical role page. Do not use an aggregator/listing index.
 - Put the provided sharer under `opportunity.sharers`.
+- Put explicit posting members under `opportunity.members` only when they are already Torre-ready member objects. Each member must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
+- Do not output raw ggId arrays or partial member objects. If no valid posting members are supplied, output `"members": []`.
 - Return only a single JSON object. Do not include markdown.
 
 ## Output Shape
@@ -97,7 +99,18 @@ Return a JSON object that can be placed directly under `job.publish_payload`:
       }
     ],
     "attachments": [],
-    "members": [],
+    "members": [
+      {
+        "ggId": "123456",
+        "manager": false,
+        "poster": false,
+        "member": true,
+        "leader": false,
+        "status": "accepted",
+        "visible": true,
+        "position": 0
+      }
+    ],
     "sharers": ["16180"],
     "compensation": {
       "code": "to-be-agreed",
@@ -149,6 +162,7 @@ Before submitting:
 - Confirm `externalApplicationUrl` is the canonical role page.
 - Confirm `organizations` points to the Torre company created or resolved in the company step.
 - Confirm `sharers` contains the intended `sharer_gg_id`.
+- Confirm `members` is `[]` or full valid member objects, never raw ggIds, names, or partial objects.
 - Confirm generated `details.content` has candidate-facing role information, not form or legal boilerplate.
 - Confirm the evidence came from a current browser/source read of the failed role, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.

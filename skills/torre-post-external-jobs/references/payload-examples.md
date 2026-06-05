@@ -289,7 +289,18 @@ Use this when the previous request produced a Torre organization id but the job 
           }
         ],
         "attachments": [],
-        "members": [],
+        "members": [
+          {
+            "ggId": "123456",
+            "manager": false,
+            "poster": false,
+            "member": true,
+            "leader": false,
+            "status": "accepted",
+            "visible": true,
+            "position": 0
+          }
+        ],
         "sharers": ["16180"],
         "compensation": {
           "code": "to-be-agreed",
@@ -316,6 +327,7 @@ Use this when the previous request produced a Torre organization id but the job 
 - If `job.resolve_and_publish` includes both `job_url` and manual content, keep both.
 - `job.input.crawled` is optional for `job.resolve_and_publish`; omit it for the API default of `true`, or send `false` when the operator/source explicitly marks the opportunity as non-crawled.
 - `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean already present in a Torre-ready payload.
+- For `job.direct_publish`, `job.publish_payload.opportunity.members` must be either `[]` or full member objects. Do not send raw ggIds or partial objects. A valid member needs a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
 - If you need explicit sharer attribution:
   - use `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - use `job.publish_payload.opportunity.sharers` for `job.direct_publish`

@@ -160,12 +160,18 @@ Treat this as a Torre-ready payload, not just a URL. In practice that usually in
 - `opportunity.intent`
 - `opportunity.externalApplicationUrl`
 - `opportunity.sharers` when the caller wants explicit sharer attribution
+- `opportunity.members` as `[]` or full member objects when explicit posting members are known
 
 ### Practical notes
 
 - Use this only when the opportunity payload is already Torre-ready.
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.
 - `job.publish_payload.opportunity.crawled` is optional. Omit it for the API default of `true`; preserve an explicit boolean when the source payload already provides one.
+- `job.publish_payload.opportunity.members` is optional, but Discovery reads it as `SaveMemberDTO[]` when the opportunity is created. If you include it, send an array of objects with:
+  - one resolvable identity: `ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`
+  - required flags: `manager`, `poster`, `member`, `visible`
+  - required metadata: `status` (`pending` or `accepted`) and `position`
+- Do not send a raw array of ggIds, names, profile URLs, or partial `{ "ggId": "..." }` objects. If there are no valid posting members, use `members: []`.
 
 ## `job.subtorre`
 
