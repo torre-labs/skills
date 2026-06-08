@@ -26,11 +26,12 @@ This skill coordinates:
 Capture these once when they are available:
 
 - `TORRE_API_URL`: Default to `https://crawl.torre.ai/api`. Do not ask the user for this unless they explicitly need a different environment.
+- `default_direct_publish_subject_id`: Default to `1529406` (`torreBotCrawler`) for `job.direct_publish` unless the user explicitly provides another crawler-enabled subject.
 - `default_sharer_gg_id`: Reuse for every selected job unless the user overrides it per job.
 - `default_subtorre`: Optional default subtorre slug for selected jobs.
 - `status_poll_interval_ms`: Default to `2000`. Never poll faster than `1000`.
 
-If the user has not mentioned `sharer_gg_id`, surface it early as an available option before the first publishable request is built.
+If the user has not mentioned `sharer_gg_id`, surface it early as an available option before the first publishable request is built. Keep the direct-publish subject and the sharer separate: the subject is the crawler-enabled publishing actor, while the sharer is attribution.
 
 ## Workflow
 
@@ -91,6 +92,7 @@ Open [references/strategy-matrix.md](references/strategy-matrix.md) and [referen
 - `job.direct_publish` uses `job.publish_payload`
 - optional `job.subtorre` lives directly under `job`
 - `job.input.sharer_gg_id` is the sharer field for `job.resolve_and_publish`
+- `job.publish_payload.subjectId` is required for `job.direct_publish`; prefer `default_direct_publish_subject_id` (`1529406`) unless another subject is explicitly confirmed as crawler-enabled.
 - `job.publish_payload.opportunity.sharers` is the sharer field for `job.direct_publish`
 - `job.input.crawled` is optional for `job.resolve_and_publish`; omit it unless the operator or source explicitly provides a boolean. Omitted means the API defaults the final opportunity to `crawled: true`.
 - `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean when provided.
@@ -173,6 +175,7 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - Do not invent a top-level `job.sharer_gg_id`; use:
   - `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - `job.publish_payload.opportunity.sharers` for `job.direct_publish`
+- Do not copy the sharer or member GGID into `job.publish_payload.subjectId`. Direct publish is rejected with `User is not an crawler` when `subjectId` is not crawler-enabled. Use `1529406` by default and keep the person's GGID in `opportunity.sharers`.
 - Do not put `subtorre` inside `job.input` or `job.publish_payload`; use `job.subtorre`.
 - Do not force `crawled: true` when the operator or source explicitly provided `crawled: false`.
 - Do not place `members` at the top level of `job.publish_payload`; it belongs at `job.publish_payload.opportunity.members`.

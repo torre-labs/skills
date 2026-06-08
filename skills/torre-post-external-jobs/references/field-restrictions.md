@@ -165,6 +165,8 @@ Treat this as a Torre-ready payload, not just a URL. In practice that usually in
 ### Practical notes
 
 - Use this only when the opportunity payload is already Torre-ready.
+- Spider does not infer `subjectId` for `job.direct_publish`; it forwards the payload to Discovery. Set `publish_payload.subjectId` to the crawler-enabled direct-publish subject, preferably `1529406` (`torreBotCrawler`), unless another subject is explicitly confirmed as crawler-enabled.
+- Do not derive `subjectId` from the sharer or posting member. Keep the sharer in `job.publish_payload.opportunity.sharers`; using a non-crawler subject causes Discovery to reject the publish with `User is not an crawler`.
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.
 - `job.publish_payload.opportunity.crawled` is optional. Omit it for the API default of `true`; preserve an explicit boolean when the source payload already provides one.
 - `job.publish_payload.opportunity.members` is optional, but Discovery reads it as `SaveMemberDTO[]` when the opportunity is created. If you include it, send an array of objects with:

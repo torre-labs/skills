@@ -8,7 +8,7 @@ This prompt follows the same opportunity-draft rules as the resolve path. The ou
 
 Provide as much of this evidence as is available:
 
-- `subject_id`
+- `direct_publish_subject_id`, default `1529406` (`torreBotCrawler`) unless another subject is explicitly confirmed as crawler-enabled
 - `company_name`
 - `company_torre_id`
 - `company_website_url`
@@ -37,6 +37,7 @@ Rules:
 - Set `crawled` from an explicit operator/source boolean when provided; otherwise omit it or use `true`. Use `false` only when the operator or source explicitly marks the opportunity as non-crawled.
 - Keep `crawledSource` as `"external"` unless the operator provided another valid source type.
 - Use `job_url` as `opportunity.externalApplicationUrl` only when it is a canonical role page. Do not use an aggregator/listing index.
+- Set top-level `subjectId` to `direct_publish_subject_id`. If no value is supplied, use `1529406`. Never derive `subjectId` from `sharer_gg_id` or a member GGID unless that same subject is explicitly confirmed as crawler-enabled.
 - Put the provided sharer under `opportunity.sharers`.
 - Put explicit posting members under `opportunity.members` only when they are already Torre-ready member objects. Each member must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
 - Do not output raw ggId arrays or partial member objects. If no valid posting members are supplied, output `"members": []`.
@@ -159,6 +160,7 @@ If the job is closed, non-remote when the run only accepts remote roles, missing
 
 Before submitting:
 
+- Confirm top-level `subjectId` is the crawler-enabled direct-publish subject, preferably `1529406`, not the sharer GGID.
 - Confirm `externalApplicationUrl` is the canonical role page.
 - Confirm `organizations` points to the Torre company created or resolved in the company step.
 - Confirm `sharers` contains the intended `sharer_gg_id`.
