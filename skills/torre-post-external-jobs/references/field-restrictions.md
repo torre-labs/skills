@@ -132,6 +132,10 @@ If manual content and `job_url` are both present:
 - `job_url` stays as the canonical URL
 - `job_url` becomes the final external application URL
 
+Manual content must be complete enough to be the extraction source. Do not send a short listing snippet, rewritten summary, or truncated description as `raw_text` when the canonical job page is readable. If the manual content omits role-critical evidence such as compensation, location, commitment, requirements, or application instructions, the API will not use `job_url` to recover those missing fields.
+
+When available, preserve structured job data such as JSON-LD in `raw_html` or source evidence. Prefer sending `raw_html` over summarized `raw_text` when the page includes structured salary, location, or employment fields.
+
 ### Practical notes
 
 - If `job_url` is missing, the request may still process the job but cannot publish it.

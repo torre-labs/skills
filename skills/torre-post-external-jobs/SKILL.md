@@ -68,6 +68,8 @@ Use `torre-select-external-jobs` when the publish set is not already explicit.
   - company name
 - Resolve the canonical job URL from the most specific stable job page you can verify.
 - If trustworthy job content exists but no trustworthy canonical job URL exists, use `raw_text` or `raw_html` and do not invent a URL.
+- Do not send a short listing snippet or summary as `raw_text` when the canonical job page is readable. Manual content becomes the extraction source of truth, so it must preserve role-critical evidence such as compensation, location, commitment, requirements, and application instructions.
+- When the source page exposes structured job data such as JSON-LD, preserve it in `raw_html` or in the captured source evidence. Structured salary/location fields are often cleaner than visible page prose and should not be discarded.
 
 Use `torre-resolve-external-job-context` before choosing the request strategy.
 
@@ -120,7 +122,7 @@ Hard rule: a recoverable resolve failure is not finished until you either run a 
    - open the exact canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
    - follow redirects to the stable role page
    - close login, cookie, and overlay interruptions when possible
-   - extract fresh `snapshot_text`, `snapshot_html`, page title, canonical URL, and visible company signals
+   - extract fresh `snapshot_text`, `snapshot_html`, page title, canonical URL, visible company signals, and structured job data such as JSON-LD when available
    - if the browser cannot access the page, try the public ATS/API source only when it returns the full job description
    - if neither browser nor source API exposes enough role content, mark `manual_review` with the blocker
 4. Build fallback payloads from the extraction references:

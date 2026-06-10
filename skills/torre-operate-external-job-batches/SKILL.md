@@ -160,7 +160,7 @@ Recommended statuses:
 
 - for every `fallback_ready` row, run browser/source remediation before building the fallback payload:
   - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
-  - capture the final URL, page title, visible job text, and HTML when available
+  - capture the final URL, page title, visible job text, HTML, and structured job data such as JSON-LD when available
   - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description
   - if neither source exposes enough role content, set `fallback_blocked_reason` and move the row to `manual_review`

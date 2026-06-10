@@ -16,6 +16,7 @@ Provide as much of this evidence as is available:
 - `job_title_hint`
 - `snapshot_html`
 - `snapshot_text`
+- structured job data from the page, such as JSON-LD, when available
 - `sharer_gg_id`
 - `source_type`, usually `external`
 - optional `subtorre`
@@ -33,6 +34,7 @@ Rules:
 - Do not invent compensation, location, skills, language requirements, company identifiers, or application URLs.
 - Preserve all role-relevant content in `details`.
 - Exclude navigation, application forms, cookie banners, legal boilerplate, and repeated page chrome.
+- If the source contains explicit compensation, including structured salary fields, include it in `opportunity.compensation`; use `to-be-agreed` only when compensation is genuinely absent or non-numeric.
 - Keep `intent` as `"post-job"` and `published` as `true`.
 - Set `crawled` from an explicit operator/source boolean when provided; otherwise omit it or use `true`. Use `false` only when the operator or source explicitly marks the opportunity as non-crawled.
 - Keep `crawledSource` as `"external"` unless the operator provided another valid source type.
@@ -165,6 +167,7 @@ Before submitting:
 - Confirm `organizations` points to the Torre company created or resolved in the company step.
 - Confirm `sharers` contains the intended `sharer_gg_id`.
 - Confirm `members` is `[]` or full valid member objects, never raw ggIds, names, or partial objects.
+- Confirm explicit source compensation was not lost. If the source has salary or pay-rate evidence and the payload says `to-be-agreed`, re-check `snapshot_html`, `snapshot_text`, and structured data before submitting.
 - Confirm generated `details.content` has candidate-facing role information, not form or legal boilerplate.
 - Confirm the evidence came from a current browser/source read of the failed role, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.
