@@ -153,8 +153,10 @@ Recommended statuses:
 - move async rows to `polling`
 - when the resolve request succeeds, update terminal outcomes as `posted` or `skipped`
 - when the resolve request fails but the source is still trustworthy, move the row to `fallback_ready` instead of `failed`
+- when the resolve request returns `completed_with_skips` with `terminal_reason: "insufficient_strengths"` and the source is still trustworthy, move the row to `fallback_ready` instead of treating the skip as final
 - update `failed` or `manual_review` only after the fallback path has also been evaluated
 - do not treat bulk retries of `resolve_and_publish` as fallback; they are still first-path retries
+- do not make more than two `resolve_and_publish` attempts for the same canonical job. After the second recoverable resolve outcome, use direct fallback or mark `manual_review`
 
 #### Fallback
 
@@ -165,6 +167,8 @@ Recommended statuses:
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description
   - if neither source exposes enough role content, set `fallback_blocked_reason` and move the row to `manual_review`
 - use `torre-post-external-jobs` fallback rules to build `company.direct_publish`, `job.direct_publish`, or both from the remediated evidence
+- for place/location validation failures, build the fallback with an explicit valid `place`
+- for insufficient-strengths skips, build the fallback with explicit source-backed `opportunity.strengths`; do not submit `strengths: []`
 - assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
 - move rows to `fallback_submitted` or `fallback_polling`
 - preserve the first-pass failure in `last_resolve_error`

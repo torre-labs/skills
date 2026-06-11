@@ -259,7 +259,14 @@ Use this when the previous request produced a Torre organization id but the job 
           "code": "full-time"
         },
         "timezones": [],
-        "strengths": [],
+        "strengths": [
+          {
+            "id": "backend-development",
+            "term": "Backend development",
+            "proficiency": "proficient",
+            "suggested": true
+          }
+        ],
         "organizations": [
           {
             "id": "acme-labs",

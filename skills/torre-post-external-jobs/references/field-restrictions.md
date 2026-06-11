@@ -169,6 +169,7 @@ Treat this as a Torre-ready payload, not just a URL. In practice that usually in
 ### Practical notes
 
 - Use this only when the opportunity payload is already Torre-ready.
+- When this is a fallback from `terminal_reason: "insufficient_strengths"`, include explicit source-backed `opportunity.strengths`. Do not submit an empty strengths array for that fallback path.
 - Spider does not infer `subjectId` for `job.direct_publish`; it forwards the payload to Discovery. Set `publish_payload.subjectId` to the crawler-enabled direct-publish subject, preferably `1529406` (`torreBotCrawler`), unless another subject is explicitly confirmed as crawler-enabled.
 - Do not derive `subjectId` from the sharer or posting member. Keep the sharer in `job.publish_payload.opportunity.sharers`; using a non-crawler subject causes Discovery to reject the publish with `User is not an crawler`.
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.

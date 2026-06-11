@@ -43,6 +43,7 @@ Rules:
 - Put the provided sharer under `opportunity.sharers`.
 - Put explicit posting members under `opportunity.members` only when they are already Torre-ready member objects. Each member must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
 - Do not output raw ggId arrays or partial member objects. If no valid posting members are supplied, output `"members": []`.
+- If the previous resolve attempt ended with `terminal_reason: "insufficient_strengths"`, derive at least one explicit `opportunity.strengths` entry from the current source evidence before submitting. If no source-backed strength can be justified, return `manual_review_reason` instead of direct-publishing.
 - Return only a single JSON object. Do not include markdown.
 
 ## Output Shape
@@ -168,6 +169,7 @@ Before submitting:
 - Confirm `sharers` contains the intended `sharer_gg_id`.
 - Confirm `members` is `[]` or full valid member objects, never raw ggIds, names, or partial objects.
 - Confirm explicit source compensation was not lost. If the source has salary or pay-rate evidence and the payload says `to-be-agreed`, re-check `snapshot_html`, `snapshot_text`, and structured data before submitting.
+- Confirm `strengths` is not empty when this is an insufficient-strengths fallback.
 - Confirm generated `details.content` has candidate-facing role information, not form or legal boilerplate.
 - Confirm the evidence came from a current browser/source read of the failed role, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.

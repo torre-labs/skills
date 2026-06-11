@@ -18,9 +18,10 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 6. If the company fails in the resolve path and you can assemble a trustworthy Torre-ready organization payload, switch only the company to `company.direct_publish`.
 7. If the company succeeds but the job fails in the resolve path and you can assemble a Torre-ready opportunity payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
 8. Do not choose `job.direct_publish` only to control `crawled`; `job.resolve_and_publish` supports optional `job.input.crawled`.
-9. Every fallback request with a different strategy or body shape must use a new `request_id`.
-10. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
-11. For recoverable job failures, browser/source remediation is required before final failure classification.
+9. For the same canonical job, make at most two `resolve_and_publish` attempts total. The second attempt is only for remediated source evidence; after that, use `job.direct_publish` when the source is still trustworthy.
+10. Every fallback request with a different strategy or body shape must use a new `request_id`.
+11. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
+12. For recoverable job failures, browser/source remediation is required before final failure classification.
 
 ## Fallback Policy After Resolve Failure
 
@@ -50,7 +51,12 @@ Recoverable errors that should trigger browser/source remediation:
 - missing opportunity id
 - extraction returned empty or unusable job content
 - place/location validation failed
+- `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
+
+For place/location validation failures, do not loop indefinitely on resolve. After the second resolve attempt, assemble a direct payload with an explicit valid `place`.
+
+For insufficient strengths, the direct fallback must include source-backed `opportunity.strengths`; do not submit an empty strengths array as the fallback.
 
 ## Company-Only Paths
 

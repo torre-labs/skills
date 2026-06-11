@@ -109,6 +109,13 @@ Use this only after a `resolve_and_publish` request reaches a terminal failure o
 
 Hard rule: a recoverable resolve failure is not finished until you either run a browser/source remediation pass or record why browser remediation is impossible. URL rewriting, blind retries, and another `resolve_and_publish` request do not count as fallback.
 
+Do not leave a recoverable row stuck in `resolve_and_publish` retries. For the same canonical job, make at most two resolve attempts total:
+
+1. the first normal `resolve_and_publish` request
+2. one remediated `resolve_and_publish` retry only when the first request used weak, truncated, or stale source material
+
+After the second recoverable resolve outcome, build a `job.direct_publish` fallback from fresh source evidence. Do not keep retrying resolve with the same inputs.
+
 1. Preserve the failed request evidence:
    - original `request_id`
    - terminal state or error
@@ -138,6 +145,11 @@ Treat these resolve failures as recoverable until browser remediation proves oth
 - extraction failed or empty extracted payload
 - location/place validation mismatch
 - weak job text from a redirect or listing page
+- `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the role page has enough evidence to supply explicit strengths manually
+
+For `location/place validation mismatch`, the fallback payload must set a valid Torre place combination explicitly. Do not rely on another resolve attempt to fix the same place shape after two resolve attempts.
+
+For `insufficient_strengths`, the fallback payload must include explicit `opportunity.strengths` derived from current source evidence. Do not direct-publish with `strengths: []` for this fallback path.
 
 Do not mark a recoverable row as final `failed` while it still has a readable role page that has not been opened and converted into a direct payload.
 
