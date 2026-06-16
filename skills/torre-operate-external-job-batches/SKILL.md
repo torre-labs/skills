@@ -137,6 +137,8 @@ Recommended statuses:
 #### Resolution
 
 - resolve company identity and canonical URLs with `torre-resolve-external-job-context`
+- for redirect, wrapper, aggregator, or shortlink rows, accept only clean redirects that land automatically on a stable single-role page
+- if the redirect requires a click, form, login, country selector, search page, alert signup, or "continue" screen, keep the row out of `ready` and set `fallback_blocked_reason` or `last_error` to `redirect_not_acceptable`
 - move clean rows to `resolved` or `ready`
 
 #### Submission
@@ -162,6 +164,8 @@ Recommended statuses:
 
 - for every `fallback_ready` row, run browser/source remediation before building the fallback payload:
   - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
+  - follow only clean redirects to a stable single-role page
+  - if the redirect is not clean, set `fallback_blocked_reason` to `redirect_not_acceptable` instead of scraping the intermediate page
   - capture the final URL, page title, visible job text, HTML, and structured job data such as JSON-LD when available
   - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description

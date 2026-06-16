@@ -2,7 +2,9 @@
 
 Use this reference when `job.resolve_and_publish` failed but the job source is still trustworthy and can be converted into `job.publish_payload`.
 
-This prompt follows the same opportunity-draft rules as the resolve path. The output must be a Torre-ready opportunity payload, not just an extraction draft.
+This prompt follows the same opportunity-draft rules as the resolve path. The
+output must be a Discovery-ready `SaveFullOpportunityDTO` payload, not just an
+extraction draft.
 
 ## Inputs
 
@@ -43,6 +45,7 @@ Rules:
 - Put the provided sharer under `opportunity.sharers`.
 - Put explicit posting members under `opportunity.members` only when they are already Torre-ready member objects. Each member must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
 - Do not output raw ggId arrays or partial member objects. If no valid posting members are supplied, output `"members": []`.
+- Do not make `leader` a required member field; Discovery treats it as optional.
 - If the previous resolve attempt ended with `terminal_reason: "insufficient_strengths"`, derive at least one explicit `opportunity.strengths` entry from the current source evidence before submitting. If no source-backed strength can be justified, return `manual_review_reason` instead of direct-publishing.
 - Return only a single JSON object. Do not include markdown.
 
@@ -65,20 +68,38 @@ Return a JSON object that can be placed directly under `job.publish_payload`:
     "externalId": null,
     "deadline": {
       "type": "specific-date",
-      "deadline": "2026-05-04T00:00:00.000Z"
+      "deadline": "2026-07-15T00:00:00.000Z"
     },
     "agreement": {
-      "type": "employment-contract"
+      "type": "employment-contract",
+      "currencyTaxes": ""
     },
     "commitment": {
-      "code": "full-time"
+      "code": "full-time",
+      "hours": 40
     },
     "timezones": [],
-    "strengths": [],
+    "strengths": [
+      {
+        "id": 12345,
+        "term": "Backend development",
+        "proficiency": "proficient",
+        "suggested": true
+      },
+      {
+        "id": 67890,
+        "term": "TypeScript",
+        "proficiency": "proficient",
+        "suggested": true
+      }
+    ],
     "organizations": [
       {
-        "id": "company-torre-id",
-        "name": "Example Inc"
+        "id": 123456,
+        "code": 123456,
+        "name": "Example Inc",
+        "size": 1,
+        "professionalHeadline": null
       }
     ],
     "languages": [],
@@ -109,7 +130,6 @@ Return a JSON object that can be placed directly under `job.publish_payload`:
         "manager": false,
         "poster": false,
         "member": true,
-        "leader": false,
         "status": "accepted",
         "visible": true,
         "position": 0
@@ -135,13 +155,25 @@ Return a JSON object that can be placed directly under `job.publish_payload`:
 The fallback is usable only when the output has:
 
 - `subjectId`
+- `opportunity.opportunity` (`employee`, `flexible-job`, `intern`, or `part-time`)
 - `opportunity.objective`
 - `opportunity.intent`
+- `opportunity.published`
+- `opportunity.locale`
 - `opportunity.externalApplicationUrl`
-- `opportunity.organizations` with the resolved Torre organization
-- `opportunity.details`
+- `opportunity.organizations` with the resolved Torre organization, using numeric IDs when known
+- `opportunity.strengths` with unique terms and valid `proficiency` or `experience`
+- `opportunity.languages` as `[]` or valid language objects
+- `opportunity.details` with valid Discovery detail codes
+- `opportunity.attachments` as `[]` or valid attachment objects
+- `opportunity.members` as `[]` or full member objects
 - `opportunity.sharers`
 - `opportunity.place`
+- `opportunity.compensation`
+
+For `employee` and `intern`, include `opportunity.commitment`. If commitment is
+`full-time`, include at least one organization. For `part-time` opportunity
+type, commitment is optional unless explicitly stated by the source.
 
 If the job is closed, non-remote when the run only accepts remote roles, missing a canonical application URL, or lacks enough role text to produce candidate-facing details, do not direct-publish. Return:
 
@@ -156,6 +188,8 @@ If the job is closed, non-remote when the run only accepts remote roles, missing
 - Use `remote_countries` when the job explicitly lists countries, states, or cities as role location.
 - Use `remote_timezones` only when no country/city/state is stated and the post gives a region or timezone.
 - Use `remote_anywhere` only when the post says worldwide/anywhere/global or says remote with no role-level geography.
+- Use `hybrid` for hybrid roles with `remote: true`, `anywhere: false`, `timezone: false`, and at least one concrete work location.
+- Use `physical_location` for on-site roles with `remote: false`, `anywhere: false`, `timezone: false`, and at least one concrete work location.
 - Ignore visa, work authorization, sponsorship, EEO, and application-form questions when deciding the role location.
 - Skip direct publish when the job is hybrid or physical and the batch/run is configured for remote-only publication.
 
@@ -166,6 +200,7 @@ Before submitting:
 - Confirm top-level `subjectId` is the crawler-enabled direct-publish subject, preferably `1529406`, not the sharer GGID.
 - Confirm `externalApplicationUrl` is the canonical role page.
 - Confirm `organizations` points to the Torre company created or resolved in the company step.
+- Confirm organization and strength identifiers are numeric when supplied.
 - Confirm `sharers` contains the intended `sharer_gg_id`.
 - Confirm `members` is `[]` or full valid member objects, never raw ggIds, names, or partial objects.
 - Confirm explicit source compensation was not lost. If the source has salary or pay-rate evidence and the payload says `to-be-agreed`, re-check `snapshot_html`, `snapshot_text`, and structured data before submitting.
