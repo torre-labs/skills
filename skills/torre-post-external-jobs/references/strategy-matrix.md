@@ -16,7 +16,7 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 4. If you do not know whether the company is already published, start with `company.resolve_and_publish + job.resolve_and_publish`.
 5. If you know the company is already published and you have its `torre_id`, use `company.resolve_and_publish` with `company.input.torre_id` and keep the job on `resolve_and_publish` by default.
 6. If the company fails in the resolve path and you can assemble a trustworthy Torre-ready organization payload, switch only the company to `company.direct_publish`.
-7. If the company succeeds but the job fails in the resolve path and you can assemble a Torre-ready opportunity payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
+7. If the company succeeds but the job fails in the resolve path and you can assemble a Discovery-ready `SaveFullOpportunityDTO` payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
 8. Do not choose `job.direct_publish` only to control `crawled`; `job.resolve_and_publish` supports optional `job.input.crawled`.
 9. For the same canonical job, make at most two `resolve_and_publish` attempts total. The second attempt is only for remediated source evidence; after that, use `job.direct_publish` when the source is still trustworthy.
 10. Every fallback request with a different strategy or body shape must use a new `request_id`.
@@ -32,7 +32,7 @@ Before building `job.direct_publish`, open the canonical job URL in a browser or
 | Failure point | Fallback request |
 | --- | --- |
 | Company resolve failed, job was never attempted | `company.direct_publish`, optionally plus original `job.resolve_and_publish` |
-| Company resolve failed and job payload can also be assembled | `company.direct_publish + job.direct_publish` |
+| Company resolve failed and a Discovery-ready job payload can also be assembled | `company.direct_publish + job.direct_publish` |
 | Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + `job.direct_publish` |
 | Company-only resolve failed | company-only `company.direct_publish` |
 
@@ -53,8 +53,11 @@ Recoverable errors that should trigger browser/source remediation:
 - place/location validation failed
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
+- `redirect_not_acceptable` when the original URL does not cleanly land on a stable single-role page
 
-For place/location validation failures, do not loop indefinitely on resolve. After the second resolve attempt, assemble a direct payload with an explicit valid `place`.
+During remediation, follow only clean redirects. A clean redirect lands automatically on a stable single-role page without a manual click, form, login, country selector, search page, alert signup, or "continue" screen. If the redirect is not clean, do not publish from the intermediate page; use a final role URL, trusted `raw_html`/`raw_text`, or mark the row `manual_review`.
+
+For place/location validation failures, do not loop indefinitely on resolve. After the second resolve attempt, assemble a direct payload with an explicit valid Discovery `place`. Hybrid direct-publish payloads use `remote=true`; physical-location payloads use `remote=false`.
 
 For insufficient strengths, the direct fallback must include source-backed `opportunity.strengths`; do not submit an empty strengths array as the fallback.
 
@@ -124,4 +127,6 @@ Use when the job must be derived from:
 
 ### `job.direct_publish`
 
-Use only when the job block is already a Torre-ready opportunity payload.
+Use only when the job block is already a Discovery-ready opportunity payload,
+including complete place, organizations, strengths, arrays, details,
+compensation, and any required commitment.

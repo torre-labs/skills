@@ -67,6 +67,10 @@ Use `torre-select-external-jobs` when the publish set is not already explicit.
   - LinkedIn company URL
   - company name
 - Resolve the canonical job URL from the most specific stable job page you can verify.
+- For redirect, bridge, wrapper, aggregator, or shortlink sources, follow only clean redirects before building the request.
+- A clean redirect must land automatically on a stable single-role page without a manual click, form, login, country selector, search page, alert signup, or "continue" screen.
+- If the final page is a verified role page, use that final URL as `job.input.job_url`; keep the original wrapper only in metadata or as `job.input.external_application_url` when it is intentionally the public application link.
+- If the redirect is not clean or the final page is not clearly a role page, do not send the wrapper as `job_url`, `raw_text`, or `raw_html`. Mark the row as `redirect_not_acceptable` or `manual_review` until a final role URL or trustworthy role content is available.
 - If trustworthy job content exists but no trustworthy canonical job URL exists, use `raw_text` or `raw_html` and do not invent a URL.
 - Do not send a short listing snippet or summary as `raw_text` when the canonical job page is readable. Manual content becomes the extraction source of truth, so it must preserve role-critical evidence such as compensation, location, commitment, requirements, and application instructions.
 - When the source page exposes structured job data such as JSON-LD, preserve it in `raw_html` or in the captured source evidence. Structured salary/location fields are often cleaner than visible page prose and should not be discarded.
@@ -78,7 +82,10 @@ Use `torre-resolve-external-job-context` before choosing the request strategy.
 - Use `company.resolve_and_publish + job.resolve_and_publish` by default when both sides still need resolution.
 - Use `company.resolve_and_publish` without `job` for company-only requests.
 - Use `company.direct_publish` only when the organization payload is already Torre-ready.
-- Use `job.direct_publish` only when the opportunity payload is already Torre-ready.
+- Use `job.direct_publish` only when the opportunity payload is already
+  Discovery-ready for `SaveFullOpportunityDTO`, including place, strengths,
+  organizations, details, members, arrays, compensation, and deadline where
+  applicable.
 - If the company is already known in Torre and you have `torre_id`, prefer `company.resolve_and_publish` with that identifier before considering `company.direct_publish`.
 - If manual content and `job_url` are both available, keep both. Manual content is the extraction source; `job_url` stays as the canonical URL.
 - Do not switch to `job.direct_publish` only to control whether the opportunity is marked as crawled. `job.resolve_and_publish` accepts optional `job.input.crawled`; omitting it keeps the default as `true`.
@@ -100,6 +107,12 @@ Open [references/strategy-matrix.md](references/strategy-matrix.md) and [referen
 - `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean when provided.
 - `job.publish_payload.opportunity.members` is optional for `job.direct_publish`, but when present it must be an array of Torre-ready member objects, not raw ggIds or names. If you cannot build valid member objects, send `members: []`.
 - Each direct-publish member object must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`) plus `manager`, `poster`, `member`, `status`, `visible`, and `position`. Use `status: "accepted"` only for confirmed members; otherwise use `"pending"`.
+- `job.publish_payload.opportunity.opportunity` may be `employee`,
+  `flexible-job`, `intern`, or `part-time` for direct publish.
+- For direct publish, `hybrid` uses `remote: true`, `anywhere: false`,
+  `timezone: false`, and a concrete work location. `physical_location` uses
+  `remote: false`, `anywhere: false`, `timezone: false`, and a concrete work
+  location.
 
 Open [references/payload-examples.md](references/payload-examples.md) for request bodies.
 
@@ -127,7 +140,8 @@ After the second recoverable resolve outcome, build a `job.direct_publish` fallb
    - both failed but both source blocks are strong: build both direct payloads and use `company.direct_publish + job.direct_publish`
 3. Run browser/source remediation for each recoverable failed row:
    - open the exact canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
-   - follow redirects to the stable role page
+   - follow clean redirects to the stable role page
+   - if a redirect requires a click, form, login, country selector, search page, alert signup, or "continue" screen, stop and mark `redirect_not_acceptable` instead of scraping the intermediate page
    - close login, cookie, and overlay interruptions when possible
    - extract fresh `snapshot_text`, `snapshot_html`, page title, canonical URL, visible company signals, and structured job data such as JSON-LD when available
    - if the browser cannot access the page, try the public ATS/API source only when it returns the full job description
@@ -182,7 +196,10 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 
 - Do not publish every row from a listing page unless the user explicitly asked for all of them.
 - Do not skip the company-resolution step just because a third-party board page contains a company name.
-- Do not choose `direct_publish` unless the payload is already Torre-ready.
+- Do not choose `direct_publish` unless the payload is already
+  Discovery-ready. Use the full contract in
+  [references/field-restrictions.md](references/field-restrictions.md), not a
+  thin objective+URL payload.
 - Do not send `careers_url` alone for `company.resolve_and_publish`.
 - Do not send third-party listing pages as the company website unless the user explicitly wants them stored only as supporting metadata.
 - Do not remove `job_url` when manual content is also present.

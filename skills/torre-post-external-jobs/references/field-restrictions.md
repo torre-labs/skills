@@ -126,11 +126,26 @@ The extraction source of truth is:
 2. `raw_text`
 3. `job_url`
 
+### URL and redirect contract
+
+`job_url` must be a verified role source, not a bridge page. If the selected URL is a redirect, wrapper, aggregator, or shortlink, follow it only when it is a clean redirect: the browser or HTTP client lands automatically on a stable single-role page without a manual click, form, login, country selector, search page, alert signup, or "continue" screen.
+
+When the redirect is clean:
+
+- use the final stable role URL as `job_url`
+- keep the original wrapper URL only in metadata or as `external_application_url` when it is intentionally the public application link
+
+When the redirect is not clean:
+
+- do not send the wrapper as `job_url`
+- do not extract `raw_text` or `raw_html` from the wrapper page
+- block the request as `redirect_not_acceptable` until a final role URL or trustworthy role content is available
+
 If manual content and `job_url` are both present:
 
 - extraction uses the manual content
 - `job_url` stays as the canonical URL
-- `job_url` becomes the final external application URL
+- `job_url` becomes the final external application URL unless `external_application_url` is explicitly supplied
 
 Manual content must be complete enough to be the extraction source. Do not send a short listing snippet, rewritten summary, or truncated description as `raw_text` when the canonical job page is readable. If the manual content omits role-critical evidence such as compensation, location, commitment, requirements, or application instructions, the API will not use `job_url` to recover those missing fields.
 
@@ -155,16 +170,45 @@ When available, preserve structured job data such as JSON-LD in `raw_html` or so
 - `publish_payload` must be a non-empty object
 - `publish_payload.opportunity.externalApplicationUrl` is required
 
-### Practical minimum
+### Discovery-ready contract
 
-Treat this as a Torre-ready payload, not just a URL. In practice that usually includes:
+Treat this as a Discovery-ready `SaveExternalOpportunityDTO`, not just a URL.
+Spider normalizes safe empty arrays for `members`, `languages`, `attachments`,
+and non-timezone `timezones`, but the agent should send the complete contract
+when building a direct fallback.
 
-- `subjectId`
-- `opportunity.objective`
-- `opportunity.intent`
-- `opportunity.externalApplicationUrl`
-- `opportunity.sharers` when the caller wants explicit sharer attribution
-- `opportunity.members` as `[]` or full member objects when explicit posting members are known
+Required or expected fields:
+
+- `subjectId`: crawler-enabled numeric subject, preferably `1529406`
+- `opportunity.opportunity`: one of `employee`, `flexible-job`, `intern`, `part-time`
+- `opportunity.objective`: job title, 120 characters or fewer
+- `opportunity.intent`: `post-job`
+- `opportunity.published`: `true`
+- `opportunity.locale`: source content language, e.g. `en` or `es`
+- `opportunity.externalApplicationUrl`: canonical role/application URL
+- `opportunity.organizations`: the resolved Torre organization, using numeric
+  `id` and `code` when the Torre id is numeric
+- `opportunity.strengths`: unique skill terms, each with numeric `id` (or
+  `code`) and valid `proficiency` or `experience`
+- `opportunity.languages`: `[]` or valid language objects
+- `opportunity.place`: valid Discovery place object
+- `opportunity.details`: valid detail blocks, usually
+  `[{ "code": "responsibilities", "content": "<p>...</p>" }]`
+- `opportunity.attachments`: `[]` or valid Discovery attachment objects
+- `opportunity.members`: `[]` or full member objects when explicit posting
+  members are known
+- `opportunity.sharers`: include the intended sharer GGID when explicit
+  attribution is required
+- `opportunity.compensation`: source compensation when present; otherwise a
+  truthful `to-be-agreed` object
+
+Discovery accepts these detail codes: `benefits`, `stock-compensations`,
+`crawl-description`, `reason`, `responsibilities`, `requirements`,
+`challenges`, `career-path`, `organizations`, `team-culture`,
+`team-structure`, `additional`, `defined-length`, `open-ended`,
+`engagement-undefined`, `comissions`, `bonuses`, `stocks`,
+`health-insurance`, `overtime`, `other`, and deprecated
+`application-process`.
 
 ### Practical notes
 
@@ -179,6 +223,31 @@ Treat this as a Torre-ready payload, not just a URL. In practice that usually in
   - required flags: `manager`, `poster`, `member`, `visible`
   - required metadata: `status` (`pending` or `accepted`) and `position`
 - Do not send a raw array of ggIds, names, profile URLs, or partial `{ "ggId": "..." }` objects. If there are no valid posting members, use `members: []`.
+- `leader` is optional in Discovery member objects. Do not make it a required
+  field in generated payloads.
+- For `employee` or `intern`, include `commitment`. For `full-time`, include at
+  least one organization.
+- For `part-time` opportunity type, `commitment` is optional unless the source
+  explicitly states a commitment; if included with `code: "part-time"`, include
+  `hours`.
+- Use `compensation.code: "range"` or `"fixed"` only when the source gives
+  numeric amounts and a valid `periodicity`; otherwise use `to-be-agreed`.
+
+### Place contract
+
+- `remote_anywhere`: `remote=true`, `anywhere=true`, `timezone=false`,
+  `location=[]`, `timezones=[]`
+- `remote_timezones`: `remote=true`, `anywhere=false`, `timezone=true`,
+  `location=[]`, and exactly two timezone offsets such as
+  `["-08:00", "-07:00"]`; normalize aliases like `PST`, `PT`, `EST`, `ET`,
+  `CET`, or `GMT-5` to offsets
+- `remote_countries`: `remote=true`, `anywhere=false`, `timezone=false`, with
+  at least one country location containing `id`, `countryCode`, `countryName`,
+  and numeric `timezone`
+- `hybrid`: `remote=true`, `anywhere=false`, `timezone=false`, with at least
+  one concrete work location
+- `physical_location`: `remote=false`, `anywhere=false`, `timezone=false`, with
+  at least one concrete work location
 
 ## `job.subtorre`
 
