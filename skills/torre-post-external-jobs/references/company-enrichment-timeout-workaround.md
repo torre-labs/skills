@@ -46,6 +46,8 @@ This has been observed to be intermittent rather than deterministic per company:
 
    Company identity is now a direct ID lookup instead of a name/website enrichment search, so it cannot get stuck the same way.
 
+Note: this name-only payload is intentionally lighter than the "Required Minimum" in [company-direct-publish-prompt.md](company-direct-publish-prompt.md) (`name` + `websiteUrl`/`identifierLink`), which governs the evidence-based fallback for a company whose identity is otherwise unresolved. Here the company name is already trusted from the original source and the goal is narrowly to dodge the enrichment timeout, not to assemble a full company profile — the duplicate-company tradeoff below is the accepted cost of that shortcut. Prefer including `websiteUrl` when you already have a verified one; it does not appear to change whether the timeout occurs, but it does still help Torre's own downstream enrichment quality.
+
 ## Verified impact
 
 In one batch of 43 rows stuck in `request_processing_failed` after 4 prior `resolve_and_publish` attempts (2 name-only, 2 name+website — all near 0% success), applying this pattern got all 43 companies a `torre_id` synchronously on the first try, and moved 25/43 (58%) to a terminal resolved outcome in the same pass (18 posted, 7 legitimately skipped by Torre for other reasons — e.g. `not_real_job`).
