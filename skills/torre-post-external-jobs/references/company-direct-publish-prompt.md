@@ -68,6 +68,8 @@ The fallback is usable only when the output has:
 - `name`
 - at least one of `websiteUrl` or `identifierLink`
 
+Exception: when routing around a `request_processing_failed` company-enrichment timeout rather than building this evidence-based fallback, a name-only payload is an accepted narrower case — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md) for the tradeoff.
+
 If the company name is missing or the only URL is an aggregator/listing URL, do not direct-publish. Return:
 
 ```json
