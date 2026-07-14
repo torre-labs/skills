@@ -136,7 +136,9 @@ After the second recoverable resolve outcome, build a `job.direct_publish` fallb
    - source URLs and raw content
 2. Decide which side failed:
    - company failed before Torre organization was available: build `company.publish_payload` and retry with `company.direct_publish`
+     - if the specific failure was `request_processing_failed` / "Timed out waiting for company enrichment to reach a terminal state", a minimal `company.direct_publish` (just `name`, no need for a full profile) is usually enough to unblock it — see [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md) for the verified two-step pattern (`direct_publish` for a `torre_id`, then `resolve_and_publish {torre_id}` + `job.resolve_and_publish`) and its duplicate-company tradeoff
    - company succeeded and returned `torre_id`, but job failed: keep `company.resolve_and_publish` with `company.input.torre_id` and build `job.publish_payload`
+     - if the job failure is a place-validation error (see below), try [references/place-validation-workaround.md](references/place-validation-workaround.md) first — supplying a location-cleaned `job.input.raw_text` alongside `job.resolve_and_publish` can resolve it without needing a full `job.direct_publish` payload
    - both failed but both source blocks are strong: build both direct payloads and use `company.direct_publish + job.direct_publish`
 3. Run browser/source remediation for each recoverable failed row:
    - open the exact canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
@@ -155,9 +157,10 @@ After the second recoverable resolve outcome, build a `job.direct_publish` fallb
 Treat these resolve failures as recoverable until browser remediation proves otherwise:
 
 - timeout while fetching the role page
+- `request_processing_failed` timeout on the company side ("Timed out waiting for company enrichment to reach a terminal state") — see [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md); this has been observed as intermittent per company, not deterministic, so a same-input retry is not a reliable fix
 - missing opportunity id
 - extraction failed or empty extracted payload
-- location/place validation mismatch
+- location/place validation mismatch (`error.invalid.value` on `place`, `inconsistent place combination for hybrid|physical_location`, `invalid_concrete_place`) — see [references/place-validation-workaround.md](references/place-validation-workaround.md) for a `raw_text`-based mitigation to try before building a full `job.direct_publish` fallback
 - weak job text from a redirect or listing page
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the role page has enough evidence to supply explicit strengths manually
 
@@ -251,3 +254,5 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - [references/payload-examples.md](references/payload-examples.md)
 - [references/company-direct-publish-prompt.md](references/company-direct-publish-prompt.md)
 - [references/job-direct-publish-prompt.md](references/job-direct-publish-prompt.md)
+- [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md)
+- [references/place-validation-workaround.md](references/place-validation-workaround.md)
