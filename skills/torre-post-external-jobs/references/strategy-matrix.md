@@ -36,6 +36,8 @@ Before building `job.direct_publish`, open the canonical job URL in a browser or
 | Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + `job.direct_publish` |
 | Company-only resolve failed | company-only `company.direct_publish` |
 
+For the specific `request_processing_failed` company-enrichment timeout, a minimal `company.direct_publish` (name only) followed by `company.resolve_and_publish {torre_id} + job.resolve_and_publish` is enough — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md). This is lighter than assembling a full `company.publish_payload`, and keeps the job on `resolve_and_publish` rather than forcing `job.direct_publish`.
+
 Do not fallback when:
 
 - company identity is ambiguous
@@ -48,9 +50,10 @@ Do not fallback when:
 Recoverable errors that should trigger browser/source remediation:
 
 - timeout while resolving or crawling the job page
+- `request_processing_failed` timeout on the company side (distinct from a job-page timeout — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md))
 - missing opportunity id
 - extraction returned empty or unusable job content
-- place/location validation failed
+- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md) for a `raw_text`-based mitigation to try before a full direct-publish fallback)
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
 
