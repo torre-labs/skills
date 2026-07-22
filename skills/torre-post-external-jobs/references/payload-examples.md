@@ -45,10 +45,71 @@ The same `TORRE_API_KEY` must be active for both the submit and status calls. If
     "publish_payload": {
       "subjectId": 1529406,
       "opportunity": {
+        "opportunity": "employee",
         "objective": "Senior Backend Engineer",
         "intent": "post-job",
+        "crawled": true,
+        "crawledSource": "external",
+        "published": true,
+        "locale": "en",
         "externalApplicationUrl": "https://jobs.acme.com/backend-engineer",
-        "sharers": ["16180"]
+        "externalId": null,
+        "deadline": {
+          "type": "never"
+        },
+        "agreement": {
+          "type": "employment-contract",
+          "currencyTaxes": ""
+        },
+        "commitment": {
+          "code": "full-time",
+          "hours": 40
+        },
+        "timezones": [],
+        "strengths": [
+          {
+            "id": 12345,
+            "term": "Backend development",
+            "proficiency": "proficient",
+            "suggested": true
+          }
+        ],
+        "organizations": [
+          {
+            "id": 123456,
+            "code": 123456,
+            "name": "Acme Labs",
+            "size": 1,
+            "professionalHeadline": null
+          }
+        ],
+        "languages": [],
+        "place": {
+          "remote": true,
+          "anywhere": true,
+          "timezone": false,
+          "locationType": "remote_anywhere",
+          "location": []
+        },
+        "details": [
+          {
+            "code": "responsibilities",
+            "content": "<p>Acme Labs is hiring a Senior Backend Engineer to build APIs, async systems, and platform services.</p>"
+          }
+        ],
+        "attachments": [],
+        "members": [],
+        "sharers": ["16180"],
+        "compensation": {
+          "code": "to-be-agreed",
+          "currency": null,
+          "minAmount": null,
+          "maxAmount": null,
+          "periodicity": null,
+          "visible": false,
+          "estimate": false,
+          "negotiable": false
+        }
       }
     }
   }
@@ -99,10 +160,71 @@ The same `TORRE_API_KEY` must be active for both the submit and status calls. If
     "publish_payload": {
       "subjectId": 1529406,
       "opportunity": {
+        "opportunity": "employee",
         "objective": "Senior Backend Engineer",
         "intent": "post-job",
+        "crawled": true,
+        "crawledSource": "external",
+        "published": true,
+        "locale": "en",
         "externalApplicationUrl": "https://jobs.acme.com/backend-engineer",
-        "sharers": ["16180"]
+        "externalId": null,
+        "deadline": {
+          "type": "never"
+        },
+        "agreement": {
+          "type": "employment-contract",
+          "currencyTaxes": ""
+        },
+        "commitment": {
+          "code": "full-time",
+          "hours": 40
+        },
+        "timezones": [],
+        "strengths": [
+          {
+            "id": 12345,
+            "term": "Backend development",
+            "proficiency": "proficient",
+            "suggested": true
+          }
+        ],
+        "organizations": [
+          {
+            "id": 123456,
+            "code": 123456,
+            "name": "Acme Labs",
+            "size": 1,
+            "professionalHeadline": null
+          }
+        ],
+        "languages": [],
+        "place": {
+          "remote": true,
+          "anywhere": true,
+          "timezone": false,
+          "locationType": "remote_anywhere",
+          "location": []
+        },
+        "details": [
+          {
+            "code": "responsibilities",
+            "content": "<p>Acme Labs is hiring a Senior Backend Engineer to build APIs, async systems, and platform services.</p>"
+          }
+        ],
+        "attachments": [],
+        "members": [],
+        "sharers": ["16180"],
+        "compensation": {
+          "code": "to-be-agreed",
+          "currency": null,
+          "minAmount": null,
+          "maxAmount": null,
+          "periodicity": null,
+          "visible": false,
+          "estimate": false,
+          "negotiable": false
+        }
       }
     }
   }
@@ -150,10 +272,71 @@ The same `TORRE_API_KEY` must be active for both the submit and status calls. If
     "publish_payload": {
       "subjectId": 1529406,
       "opportunity": {
+        "opportunity": "employee",
         "objective": "Senior Backend Engineer",
         "intent": "post-job",
+        "crawled": true,
+        "crawledSource": "external",
+        "published": true,
+        "locale": "en",
         "externalApplicationUrl": "https://jobs.acme.com/backend-engineer",
-        "sharers": ["16180"]
+        "externalId": null,
+        "deadline": {
+          "type": "never"
+        },
+        "agreement": {
+          "type": "employment-contract",
+          "currencyTaxes": ""
+        },
+        "commitment": {
+          "code": "full-time",
+          "hours": 40
+        },
+        "timezones": [],
+        "strengths": [
+          {
+            "id": 12345,
+            "term": "Backend development",
+            "proficiency": "proficient",
+            "suggested": true
+          }
+        ],
+        "organizations": [
+          {
+            "id": 123456,
+            "code": 123456,
+            "name": "Acme Labs",
+            "size": 1,
+            "professionalHeadline": null
+          }
+        ],
+        "languages": [],
+        "place": {
+          "remote": true,
+          "anywhere": true,
+          "timezone": false,
+          "locationType": "remote_anywhere",
+          "location": []
+        },
+        "details": [
+          {
+            "code": "responsibilities",
+            "content": "<p>Acme Labs is hiring a Senior Backend Engineer to build APIs, async systems, and platform services.</p>"
+          }
+        ],
+        "attachments": [],
+        "members": [],
+        "sharers": ["16180"],
+        "compensation": {
+          "code": "to-be-agreed",
+          "currency": null,
+          "minAmount": null,
+          "maxAmount": null,
+          "periodicity": null,
+          "visible": false,
+          "estimate": false,
+          "negotiable": false
+        }
       }
     }
   }
@@ -196,7 +379,7 @@ Use a new `request_id` because this payload is different from the failed resolve
 
 ```json
 {
-  "request_id": "fallback-company-20260424-0001",
+  "request_id": "6b4e1d2a-3187-4e2d-9b6f-0ab5c8d1e274",
   "company": {
     "strategy": "direct_publish",
     "publish_payload": {
@@ -227,7 +410,7 @@ Use this when the previous request produced a Torre organization id but the job 
 
 ```json
 {
-  "request_id": "fallback-job-20260424-0001",
+  "request_id": "0dc42caa-89af-4baf-8142-182f7951bb39",
   "company": {
     "strategy": "resolve_and_publish",
     "input": {
@@ -249,19 +432,20 @@ Use this when the previous request produced a Torre organization id but the job 
         "externalApplicationUrl": "https://jobs.acme.com/backend-engineer",
         "externalId": null,
         "deadline": {
-          "type": "specific-date",
-          "deadline": "2026-05-04T00:00:00.000Z"
+          "type": "never"
         },
         "agreement": {
-          "type": "employment-contract"
+          "type": "employment-contract",
+          "currencyTaxes": ""
         },
         "commitment": {
-          "code": "full-time"
+          "code": "full-time",
+          "hours": 40
         },
         "timezones": [],
         "strengths": [
           {
-            "id": "backend-development",
+            "id": 12345,
             "term": "Backend development",
             "proficiency": "proficient",
             "suggested": true
@@ -269,8 +453,11 @@ Use this when the previous request produced a Torre organization id but the job 
         ],
         "organizations": [
           {
-            "id": "acme-labs",
-            "name": "Acme Labs"
+            "id": 123456,
+            "code": 123456,
+            "name": "Acme Labs",
+            "size": 1,
+            "professionalHeadline": null
           }
         ],
         "languages": [],
@@ -295,18 +482,7 @@ Use this when the previous request produced a Torre organization id but the job 
           }
         ],
         "attachments": [],
-        "members": [
-          {
-            "ggId": "123456",
-            "manager": false,
-            "poster": false,
-            "member": true,
-            "leader": false,
-            "status": "accepted",
-            "visible": true,
-            "position": 0
-          }
-        ],
+        "members": [],
         "sharers": ["16180"],
         "compensation": {
           "code": "to-be-agreed",
@@ -331,11 +507,21 @@ Use this when the previous request produced a Torre organization id but the job 
 - When switching from `resolve_and_publish` to a direct fallback, always use a new `request_id`.
 - If the company is already known in Torre, prefer `company.resolve_and_publish` with `company.input.torre_id`.
 - If `job.resolve_and_publish` includes both `job_url` and manual content, keep both.
-- Do not include summarized `raw_text` when `job_url` points to a readable canonical role page. If manual content is supplied, it is the extraction source of truth and must preserve explicit compensation, location, commitment, requirements, and application instructions.
+- When `job_url` is fetchable, Spider acquires that URL first; manual content is
+  fallback evidence only if URL acquisition fails. Any supplied fallback must
+  be complete and preserve explicit compensation, location, commitment,
+  requirements, and application instructions.
+- For `job.direct_publish`, use `deadline.type: "specific-date"` only when the
+  source provides a valid closing date that is today or later. Otherwise use
+  `deadline.type: "never"`; never copy a fixed date from documentation.
 - Preserve structured job data such as JSON-LD in `raw_html` or source evidence when available.
 - `job.input.crawled` is optional for `job.resolve_and_publish`; omit it for the API default of `true`, or send `false` when the operator/source explicitly marks the opportunity as non-crawled.
-- `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean already present in a Torre-ready payload.
-- For `job.direct_publish`, `job.publish_payload.opportunity.members` must be either `[]` or full member objects. Do not send raw ggIds or partial objects. A valid member needs a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
+- `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean already present in a Discovery-ready payload.
+- For `job.direct_publish`, `job.publish_payload.opportunity.members` must be
+  either `[]` or full member objects. Do not send raw ggIds or partial objects.
+  A valid direct-publish member needs a non-empty `ggId`, `manager`, `poster`,
+  `member`, `status`, `visible`, and `position`; Spider accepts `pending` or
+  `accepted` status.
 - If you need explicit sharer attribution:
   - use `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - use `job.publish_payload.opportunity.sharers` for `job.direct_publish`

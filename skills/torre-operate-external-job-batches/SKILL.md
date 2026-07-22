@@ -137,6 +137,12 @@ Recommended statuses:
 #### Resolution
 
 - resolve company identity and canonical URLs with `torre-resolve-external-job-context`
+- for HTTP redirect rows, accept only chains where every 3xx hop has a usable
+  HTTP(S) `Location`, the chain does not loop, and it stays within Spider's hop
+  limit
+- preserve `redirect_not_acceptable` when Spider reports that terminal reason;
+  use `manual_review` for a `200` wrapper that still requires a click, login,
+  search, or form
 - move clean rows to `resolved` or `ready`
 
 #### Submission
@@ -162,12 +168,24 @@ Recommended statuses:
 
 - for every `fallback_ready` row, run browser/source remediation before building the fallback payload:
   - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
+  - follow only clean HTTP redirect chains to a stable single-role page
+  - set `fallback_blocked_reason` to `redirect_not_acceptable` only when Spider
+    reports that terminal reason; otherwise classify an unverified wrapper
+    separately as `manual_review`
   - capture the final URL, page title, visible job text, HTML, and structured job data such as JSON-LD when available
   - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description
   - if neither source exposes enough role content, set `fallback_blocked_reason` and move the row to `manual_review`
 - use `torre-post-external-jobs` fallback rules to build `company.direct_publish`, `job.direct_publish`, or both from the remediated evidence
-- for place/location validation failures, build the fallback with an explicit valid `place`
+- for a company-enrichment timeout, reuse a known `torre_id`; if only a
+  name-only company payload remains, move the row to `manual_review` until the
+  operator explicitly approves that duplicate-company risk
+- for place/location validation failures, preserve all location evidence and
+  build the fallback with an explicit valid `place`; if the evidence is
+  ambiguous or cannot be canonicalized, move the row to `manual_review`
+- after a place fallback publishes, verify the public objective, organization,
+  place, external application URL, and requested Subtorre before recording
+  success
 - for insufficient-strengths skips, build the fallback with explicit source-backed `opportunity.strengths`; do not submit `strengths: []`
 - assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
 - move rows to `fallback_submitted` or `fallback_polling`

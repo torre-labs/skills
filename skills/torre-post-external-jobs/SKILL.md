@@ -67,8 +67,20 @@ Use `torre-select-external-jobs` when the publish set is not already explicit.
   - LinkedIn company URL
   - company name
 - Resolve the canonical job URL from the most specific stable job page you can verify.
+- For redirect, bridge, wrapper, aggregator, or shortlink sources, follow only clean HTTP redirects before building the request.
+- Spider accepts an HTTP redirect chain only when every 3xx hop has a usable
+  HTTP(S) `Location`, the chain does not loop, and it stays within the hop limit.
+- If the final page is a verified role page, use that final URL as `job.input.job_url`; keep the original wrapper only in metadata or as `job.input.external_application_url` when it is intentionally the public application link.
+- If Spider rejects the HTTP chain, preserve its `redirect_not_acceptable`
+  reason. If a `200` page still requires a click, login, search, or form, treat
+  it as an unverified wrapper and mark `manual_review`; do not invent a Spider
+  redirect error.
 - If trustworthy job content exists but no trustworthy canonical job URL exists, use `raw_text` or `raw_html` and do not invent a URL.
-- Do not send a short listing snippet or summary as `raw_text` when the canonical job page is readable. Manual content becomes the extraction source of truth, so it must preserve role-critical evidence such as compensation, location, commitment, requirements, and application instructions.
+- When `job_url` is fetchable, Spider acquires that URL first. Treat `raw_html`
+  and `raw_text` as fallback evidence only when URL acquisition fails or no
+  fetchable URL is present. Manual fallback content must be complete and
+  preserve compensation, location, commitment, requirements, and application
+  instructions.
 - When the source page exposes structured job data such as JSON-LD, preserve it in `raw_html` or in the captured source evidence. Structured salary/location fields are often cleaner than visible page prose and should not be discarded.
 
 Use `torre-resolve-external-job-context` before choosing the request strategy.
@@ -78,9 +90,14 @@ Use `torre-resolve-external-job-context` before choosing the request strategy.
 - Use `company.resolve_and_publish + job.resolve_and_publish` by default when both sides still need resolution.
 - Use `company.resolve_and_publish` without `job` for company-only requests.
 - Use `company.direct_publish` only when the organization payload is already Torre-ready.
-- Use `job.direct_publish` only when the opportunity payload is already Torre-ready.
+- Use `job.direct_publish` only when the opportunity payload is already
+  Discovery-ready for `SaveFullOpportunityDTO`, including place, strengths,
+  organizations, details, members, arrays, compensation, and deadline where
+  applicable.
 - If the company is already known in Torre and you have `torre_id`, prefer `company.resolve_and_publish` with that identifier before considering `company.direct_publish`.
-- If manual content and `job_url` are both available, keep both. Manual content is the extraction source; `job_url` stays as the canonical URL.
+- If manual content and `job_url` are both available, keep both. Spider uses
+  the fetchable `job_url` as the primary source-acquisition target and manual
+  content only as fallback evidence.
 - Do not switch to `job.direct_publish` only to control whether the opportunity is marked as crawled. `job.resolve_and_publish` accepts optional `job.input.crawled`; omitting it keeps the default as `true`.
 - Treat `resolve_and_publish` failure as a routing event, not as the end of the attempt. When the source material is still trustworthy, prepare a `direct_publish` fallback payload and submit a new request with a new `request_id`.
 
@@ -99,7 +116,16 @@ Open [references/strategy-matrix.md](references/strategy-matrix.md) and [referen
 - `job.input.crawled` is optional for `job.resolve_and_publish`; omit it unless the operator or source explicitly provides a boolean. Omitted means the API defaults the final opportunity to `crawled: true`.
 - `job.publish_payload.opportunity.crawled` is optional for `job.direct_publish`; omit it for the same default, and preserve an explicit boolean when provided.
 - `job.publish_payload.opportunity.members` is optional for `job.direct_publish`, but when present it must be an array of Torre-ready member objects, not raw ggIds or names. If you cannot build valid member objects, send `members: []`.
-- Each direct-publish member object must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`) plus `manager`, `poster`, `member`, `status`, `visible`, and `position`. Use `status: "accepted"` only for confirmed members; otherwise use `"pending"`.
+- Each direct-publish member object must include a non-empty `ggId` plus
+  `manager`, `poster`, `member`, `status`, `visible`, and `position`. Spider's
+  direct validator accepts `status: "pending"` or `"accepted"`; use
+  `"accepted"` only for confirmed members.
+- `job.publish_payload.opportunity.opportunity` may be `employee`,
+  `flexible-job`, `intern`, or `part-time` for direct publish.
+- For direct publish, `hybrid` uses `remote: true`, `anywhere: false`,
+  `timezone: false`, and a concrete work location. `physical_location` uses
+  `remote: false`, `anywhere: false`, `timezone: false`, and a concrete work
+  location.
 
 Open [references/payload-examples.md](references/payload-examples.md) for request bodies.
 
@@ -123,11 +149,16 @@ After the second recoverable resolve outcome, build a `job.direct_publish` fallb
    - source URLs and raw content
 2. Decide which side failed:
    - company failed before Torre organization was available: build `company.publish_payload` and retry with `company.direct_publish`
+     - if the specific failure was `request_processing_failed` / "Timed out waiting for company enrichment to reach a terminal state", first reuse a known `torre_id` when available; otherwise see [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md). A name-only `company.direct_publish` is allowed only after explicit operator confirmation because Spider performs no local company deduplication before calling Torre
    - company succeeded and returned `torre_id`, but job failed: keep `company.resolve_and_publish` with `company.input.torre_id` and build `job.publish_payload`
+     - if the job failure is a place-validation error (see below), use [references/place-validation-workaround.md](references/place-validation-workaround.md) to preserve the source location and either build a Discovery-ready explicit `place` or route the row to `manual_review`
    - both failed but both source blocks are strong: build both direct payloads and use `company.direct_publish + job.direct_publish`
 3. Run browser/source remediation for each recoverable failed row:
    - open the exact canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
-   - follow redirects to the stable role page
+   - follow only clean HTTP redirect chains to the stable role page
+   - preserve `redirect_not_acceptable` only when Spider reports a malformed,
+     looping, non-HTTP, or over-limit redirect chain; use `manual_review` for a
+     `200` wrapper that still requires manual interaction
    - close login, cookie, and overlay interruptions when possible
    - extract fresh `snapshot_text`, `snapshot_html`, page title, canonical URL, visible company signals, and structured job data such as JSON-LD when available
    - if the browser cannot access the page, try the public ATS/API source only when it returns the full job description
@@ -141,13 +172,18 @@ After the second recoverable resolve outcome, build a `job.direct_publish` fallb
 Treat these resolve failures as recoverable until browser remediation proves otherwise:
 
 - timeout while fetching the role page
+- `request_processing_failed` timeout on the company side ("Timed out waiting for company enrichment to reach a terminal state") — see [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md); this has been observed as intermittent per company, not deterministic, so a same-input retry is not a reliable fix
 - missing opportunity id
 - extraction failed or empty extracted payload
-- location/place validation mismatch
+- location/place validation mismatch (`error.invalid.value` on `place`, `inconsistent place combination for hybrid|physical_location`, `invalid_concrete_place`) — see [references/place-validation-workaround.md](references/place-validation-workaround.md) for source-faithful direct fallback or `manual_review`
 - weak job text from a redirect or listing page
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the role page has enough evidence to supply explicit strengths manually
 
-For `location/place validation mismatch`, the fallback payload must set a valid Torre place combination explicitly. Do not rely on another resolve attempt to fix the same place shape after two resolve attempts.
+For `location/place validation mismatch`, preserve every source-backed location
+signal. After two resolve attempts, use `job.direct_publish` only when a complete
+valid Discovery `place` can be built without guessing; otherwise mark
+`manual_review`. After publication, verify the public place and application URL
+before treating the row as successful.
 
 For `insufficient_strengths`, the fallback payload must include explicit `opportunity.strengths` derived from current source evidence. Do not direct-publish with `strengths: []` for this fallback path.
 
@@ -182,10 +218,15 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 
 - Do not publish every row from a listing page unless the user explicitly asked for all of them.
 - Do not skip the company-resolution step just because a third-party board page contains a company name.
-- Do not choose `direct_publish` unless the payload is already Torre-ready.
+- Do not choose `direct_publish` unless the payload is already
+  Discovery-ready. Use the full contract in
+  [references/field-restrictions.md](references/field-restrictions.md), not a
+  thin objective+URL payload.
 - Do not send `careers_url` alone for `company.resolve_and_publish`.
 - Do not send third-party listing pages as the company website unless the user explicitly wants them stored only as supporting metadata.
-- Do not remove `job_url` when manual content is also present.
+- Do not claim that manual content overrides a fetchable `job_url`; Spider uses
+  the URL first and manual content only as fallback when URL acquisition fails.
+- Do not remove source location evidence to bypass place validation.
 - Do not invent a top-level `job.sharer_gg_id`; use:
   - `job.input.sharer_gg_id` for `job.resolve_and_publish`
   - `job.publish_payload.opportunity.sharers` for `job.direct_publish`
@@ -225,7 +266,9 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - Ending a batch with recoverable failures before opening the failed jobs in a browser/source remediation pass
 - Running a large publication batch without a persistent queue/report
 - Choosing `job.direct_publish` only because a non-crawled opportunity is needed; `job.resolve_and_publish` can receive optional `job.input.crawled: false`
-- Sending malformed `job.publish_payload.opportunity.members`; use full member objects with a resolvable identity, or an empty array when no valid members are available
+- Sending malformed `job.publish_payload.opportunity.members`; use full member
+  objects with a non-empty `ggId`, or an empty array when no valid members are
+  available
 
 ## References
 
@@ -234,3 +277,5 @@ curl "$TORRE_API_URL/crawling/ingest/status/<request-id>" \
 - [references/payload-examples.md](references/payload-examples.md)
 - [references/company-direct-publish-prompt.md](references/company-direct-publish-prompt.md)
 - [references/job-direct-publish-prompt.md](references/job-direct-publish-prompt.md)
+- [references/company-enrichment-timeout-workaround.md](references/company-enrichment-timeout-workaround.md)
+- [references/place-validation-workaround.md](references/place-validation-workaround.md)

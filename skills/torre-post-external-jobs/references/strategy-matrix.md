@@ -16,7 +16,7 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 4. If you do not know whether the company is already published, start with `company.resolve_and_publish + job.resolve_and_publish`.
 5. If you know the company is already published and you have its `torre_id`, use `company.resolve_and_publish` with `company.input.torre_id` and keep the job on `resolve_and_publish` by default.
 6. If the company fails in the resolve path and you can assemble a trustworthy Torre-ready organization payload, switch only the company to `company.direct_publish`.
-7. If the company succeeds but the job fails in the resolve path and you can assemble a Torre-ready opportunity payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
+7. If the company succeeds but the job fails in the resolve path and you can assemble a Discovery-ready `SaveFullOpportunityDTO` payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
 8. Do not choose `job.direct_publish` only to control `crawled`; `job.resolve_and_publish` supports optional `job.input.crawled`.
 9. For the same canonical job, make at most two `resolve_and_publish` attempts total. The second attempt is only for remediated source evidence; after that, use `job.direct_publish` when the source is still trustworthy.
 10. Every fallback request with a different strategy or body shape must use a new `request_id`.
@@ -32,9 +32,17 @@ Before building `job.direct_publish`, open the canonical job URL in a browser or
 | Failure point | Fallback request |
 | --- | --- |
 | Company resolve failed, job was never attempted | `company.direct_publish`, optionally plus original `job.resolve_and_publish` |
-| Company resolve failed and job payload can also be assembled | `company.direct_publish + job.direct_publish` |
+| Company resolve failed and a Discovery-ready job payload can also be assembled | `company.direct_publish + job.direct_publish` |
 | Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + `job.direct_publish` |
 | Company-only resolve failed | company-only `company.direct_publish` |
+
+For the specific `request_processing_failed` company-enrichment timeout, first
+reuse a known `torre_id`. If none is available, the narrower
+`company.direct_publish` then `company.resolve_and_publish {torre_id} +
+job.resolve_and_publish` workaround may be used. A name-only company payload
+requires explicit operator confirmation every time because Spider performs no
+local company deduplication. See
+[company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md).
 
 Do not fallback when:
 
@@ -48,13 +56,27 @@ Do not fallback when:
 Recoverable errors that should trigger browser/source remediation:
 
 - timeout while resolving or crawling the job page
+- `request_processing_failed` timeout on the company side (distinct from a job-page timeout — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md))
 - missing opportunity id
 - extraction returned empty or unusable job content
-- place/location validation failed
+- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md) for a source-faithful explicit-place fallback or `manual_review`)
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
+- `redirect_not_acceptable` when Spider rejects a malformed, non-HTTP, looping,
+  or over-limit HTTP redirect chain
 
-For place/location validation failures, do not loop indefinitely on resolve. After the second resolve attempt, assemble a direct payload with an explicit valid `place`.
+During remediation, follow only clean HTTP redirects. Spider requires every 3xx
+hop to have a usable HTTP(S) `Location`, no loop, and no hop-limit overflow. A
+`200` wrapper that still needs a click, login, search, or form is not a Spider
+redirect failure; use a final role URL, trusted `raw_html`/`raw_text`, or mark
+the row `manual_review`.
+
+For place/location validation failures, do not loop indefinitely on resolve or
+remove location evidence. After the second resolve attempt, assemble a direct
+payload only when the source supports an explicit valid Discovery `place`;
+otherwise mark `manual_review`. Hybrid direct-publish payloads use
+`remote=true`; physical-location payloads use `remote=false`. Verify the
+published place before recording success.
 
 For insufficient strengths, the direct fallback must include source-backed `opportunity.strengths`; do not submit an empty strengths array as the fallback.
 
@@ -124,4 +146,6 @@ Use when the job must be derived from:
 
 ### `job.direct_publish`
 
-Use only when the job block is already a Torre-ready opportunity payload.
+Use only when the job block is already a Discovery-ready opportunity payload,
+including complete place, organizations, strengths, arrays, details,
+compensation, and any required commitment.
