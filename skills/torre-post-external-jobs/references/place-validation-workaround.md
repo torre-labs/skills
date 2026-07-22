@@ -1,39 +1,72 @@
-# Job "Place" Validation Failures — Workaround
+# Job Place Validation Failures
 
 ## Symptom
 
-`job.resolve_and_publish` terminates with `terminal_reason: job_pipeline_failed`, `entity: job`, and one of these error messages:
+`job.resolve_and_publish` terminates with `terminal_reason:
+job_pipeline_failed`, `entity: job`, and a place-related error such as:
 
-- `TorreOpportunity error: ... {"obj.opportunity":[{"msg":["error.invalid.value"],"args":["place"]}]}`
-- `Validation failed for field prompt_payload.place: inconsistent place combination for hybrid`
-- `Validation failed for field prompt_payload.place: inconsistent place combination for physical_location`
-- `Validation failed for field torre_payload.place.location: invalid_concrete_place`
-- `TorreOpportunity error: ... {"code":"error.opportunity.location.does.not.exist", ...}`
+- `error.invalid.value` for `place`
+- `inconsistent place combination for hybrid`
+- `inconsistent place combination for physical_location`
+- `invalid_concrete_place`
+- `error.opportunity.location.does.not.exist`
 
-These happen when Torre's own extraction/inference produces a location it cannot validate — most often because the source has two conflicting location signals (e.g. a listing header says "Madrid (Híbrido)" but the body copy says "el lugar de trabajo es Tres Cantos", or a company posts one job across multiple cities: "Ubicaciones: Madrid, Barcelona, Sevilla").
+These errors mean the extracted place could not satisfy Spider's posting and
+Discovery validation. Conflicting source signals are common: for example, a
+listing header may say Madrid while the body says Tres Cantos, or a single post
+may advertise the role in several cities.
 
-## Mitigation: clean location clues out of `raw_text`
+## Spider source precedence
 
-Instead of relying on `job_url` extraction alone, capture the job description yourself and submit it as `job.input.raw_text` with location-identifying lines stripped:
+When a fetchable `job_url` is present, Spider resolves clean redirects and
+acquires the current source from that URL before extraction. Caller-provided
+`raw_html` and `raw_text` are auxiliary fallback content only when URL
+acquisition fails. Supplying edited `raw_text` alongside a readable `job_url`
+does not override the URL snapshot.
 
-- Drop lines that are only a city/country pair ("Madrid, España"), or labelled ("Location:", "Ubicación:", "Based in:").
-- Drop "Remote | City" / "Híbrido | City" style fragments.
-- Drop postal codes and multi-city listings ("Ubicaciones: Madrid, Barcelona, Sevilla").
-- Keep everything else (responsibilities, requirements, comp, seniority) intact — this is still a full extraction source, not a summary.
+Do not remove location evidence from `raw_text`, `raw_html`, structured data,
+the title, or the canonical URL to bypass validation. Location and work-mode
+signals are candidate-critical source truth.
 
-Per [field-restrictions.md](field-restrictions.md)'s content precedence (`raw_html` > `raw_text` > `job_url`), a clean `raw_text` takes priority over whatever Torre would otherwise derive from `job_url`. Keep `job_url` in the payload regardless — it remains the canonical/application URL, per the same file.
+## Remediation
 
-## Known limitation (verified empirically — not fully solved)
+1. Reopen the canonical role page and capture the current title, organization,
+   application URL, work mode, every stated location, and structured
+   `JobPosting` data.
+2. Reconcile apparent conflicts using explicit source evidence. Do not infer a
+   city, country, timezone, remote policy, or work mode that the source does not
+   support.
+3. Make at most one remediated `job.resolve_and_publish` retry, for no more than
+   two resolve attempts total for the canonical job.
+4. If place validation still fails, use `job.direct_publish` only when the
+   current source supports a complete Discovery-ready payload and an explicit
+   valid `opportunity.place`:
+   - `remote_anywhere`: `remote=true`, `anywhere=true`, `timezone=false`,
+     `location=[]`, `timezones=[]`
+   - `remote_timezones`: `remote=true`, `anywhere=false`, `timezone=true`,
+     `location=[]`, and exactly two valid timezone offsets
+   - `remote_countries`: `remote=true`, `anywhere=false`, `timezone=false`, and
+     at least one canonical country location
+   - `hybrid`: `remote=true`, `anywhere=false`, `timezone=false`, and at least
+     one canonical concrete work location
+   - `physical_location`: `remote=false`, `anywhere=false`, `timezone=false`,
+     and at least one canonical concrete work location
+5. If the source is ambiguous, contradictory, or cannot be mapped to valid
+   canonical locations without guessing, stop at `manual_review` with
+   `ambiguous_or_uncanonicalizable_place`.
 
-Cleaning `raw_text` alone was not sufficient for every case. In one test batch, 6 of 7 remaining `job_pipeline_failed` rows after this cleanup were still place-related. Two likely additional signal sources that `raw_text` cleaning does not address:
+Use a new `request_id` for the direct fallback because its body differs from the
+failed resolve request.
 
-1. **The `job_url` path itself can encode a location segment** that Torre may read independently of `raw_text` — e.g. InfoJobs URLs follow `infojobs.net/<city>/<slug>/<id>`, so the literal string `madrid` is present in the URL even when the description text has been fully scrubbed.
-2. **Torre may be resolving location against the company record, not just the job** — e.g. a multinational's registered HQ country vs. the job's local office produces a conflict that no amount of job-description cleaning can fix, since the mismatch is on the company side.
+## Fidelity verification
 
-Neither of these has a confirmed fix yet. Untested candidate mitigations for a future pass:
-- Try omitting `job_url` entirely when `raw_text` is present, to see whether Torre's place inference stops reading the URL path (would need `raw_text` to be complete enough to stand alone, and loses `job_url` as the extraction source — check whether the API still accepts the request with `job_url` absent and `raw_text` present per [field-restrictions.md](field-restrictions.md)'s minimum-signal rule for `job.resolve_and_publish`).
-- For the company-side conflict, there is currently no lever available in `resolve_and_publish` (it has no place-related input field at all); it may require `job.direct_publish` with an explicit `opportunity.place`, per the parent skill's existing fallback guidance for place failures.
+Verify the published opportunity before recording the row as successful:
 
-## Effectiveness
+- objective matches the source title
+- organization matches the resolved Torre company
+- place preserves the source-backed work mode and locations
+- external application URL reaches the intended role/application path
+- requested Subtorre association is present
 
-Applied to 16 `job_pipeline_failed` rows caused by place errors (after the company side was already fixed via [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md)): 9/16 (56%) resolved.
+If any field differs materially, record `manual_review` rather than counting the
+publication as a successful workaround.

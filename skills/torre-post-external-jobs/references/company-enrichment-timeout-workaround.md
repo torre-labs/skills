@@ -13,11 +13,27 @@ This has been observed to be intermittent rather than deterministic per company:
 
 ## Workaround: create the company first via `direct_publish`, then resolve by `torre_id`
 
+Use this only for the exact timeout above. Spider performs no local company
+deduplication before calling Torre for `company.direct_publish`; Torre decides
+whether the organization is reused or created.
+
+Before applying the workaround:
+
+- Reuse an existing `torre_id` with `company.resolve_and_publish` when one is
+   already known.
+- Include a verified `websiteUrl` or `identifierLink` whenever it is
+   available. Do not invent either value.
+- Get explicit operator confirmation before every name-only `company.direct_publish`.
+   Without that confirmation, stop at `manual_review` with
+   `duplicate_company_risk`.
+
+Then execute the two-request workaround:
+
 1. Submit `company.direct_publish` alone (no `job`), with a minimal payload:
 
    ```json
    {
-     "request_id": "...",
+     "request_id": "6b4e1d2a-3187-4e2d-9b6f-0ab5c8d1e274",
      "company": {
        "strategy": "direct_publish",
        "publish_payload": { "name": "<company name>", "flags": { "serviceType": "free" } }
@@ -25,13 +41,17 @@ This has been observed to be intermittent rather than deterministic per company:
    }
    ```
 
-   This is synchronous and returns `data.company.torre_id` (check both `torre_id` and `torreId` in the response — field casing has varied) immediately. There is no async enrichment step here, so nothing to time out on.
+   Add a verified `websiteUrl` or `identifierLink` to `publish_payload` when
+   available. Omit those fields rather than guessing. This request is
+   synchronous and returns `data.company.torre_id` (check both `torre_id` and
+   `torreId` in the response — field casing has varied) immediately. There is
+   no async enrichment step here, so nothing to time out on.
 
 2. Take that `torre_id` and submit a second request:
 
    ```json
    {
-     "request_id": "...",
+     "request_id": "0dc42caa-89af-4baf-8142-182f7951bb39",
      "company": {
        "strategy": "resolve_and_publish",
        "input": { "torre_id": "<id from step 1>" }
@@ -46,7 +66,14 @@ This has been observed to be intermittent rather than deterministic per company:
 
    Company identity is now a direct ID lookup instead of a name/website enrichment search, so it cannot get stuck the same way.
 
-Note: this name-only payload is intentionally lighter than the "Required Minimum" in [company-direct-publish-prompt.md](company-direct-publish-prompt.md) (`name` + `websiteUrl`/`identifierLink`), which governs the evidence-based fallback for a company whose identity is otherwise unresolved. Here the company name is already trusted from the original source and the goal is narrowly to dodge the enrichment timeout, not to assemble a full company profile — the duplicate-company tradeoff below is the accepted cost of that shortcut. Prefer including `websiteUrl` when you already have a verified one; it does not appear to change whether the timeout occurs, but it does still help Torre's own downstream enrichment quality.
+This name-only payload is intentionally lighter than the "Required Minimum" in
+[company-direct-publish-prompt.md](company-direct-publish-prompt.md) (`name` +
+`websiteUrl`/`identifierLink`), which governs the evidence-based fallback for a
+company whose identity is otherwise unresolved. Here the company name must
+already be trusted from the original source, and the operator must explicitly
+accept the duplicate-company risk. Prefer including a verified `websiteUrl` or
+`identifierLink`; neither removes the need for approval when the final payload
+contains only the name.
 
 ## Verified impact
 
@@ -54,9 +81,19 @@ In one batch of 43 rows stuck in `request_processing_failed` after 4 prior `reso
 
 ## Tradeoff — read before using
 
-`company.direct_publish` skips whatever matching/dedup `company.resolve_and_publish` would otherwise do. Per [field-restrictions.md](field-restrictions.md), "creation vs reuse is resolved by Torre in this strategy" for `direct_publish` — but that resolution is opaque to the caller. If Torre does not internally match the name against an existing company, this can create a duplicate company record for a company that already exists in Torre under a different `torre_id`. This is a real, observed risk, not a hypothetical — get explicit confirmation from the operator before using this pattern in bulk, and prefer it only after `resolve_and_publish` has already failed with the timeout above, not as a first attempt.
+`company.direct_publish` skips Spider's local company deduplication. Torre may
+reuse an organization or create a new one, but that decision is opaque to the
+caller. A name-only payload can therefore create a duplicate company record for
+an organization that already exists under another `torre_id`. This is a real,
+observed risk, not a hypothetical. Approval is required for every name-only
+request, including one-off use. A batch also requires one explicit approval for
+the exact reviewed cohort after its dry-run summary.
 
 ## When to use
 
 - Use plain `company.resolve_and_publish {name}` (or `{name, website_url}`) as the first attempt, per the parent skill's default policy.
-- If that attempt terminates with `request_processing_failed` / "Timed out waiting for company enrichment", route to this `direct_publish` → `torre_id` pattern instead of retrying `resolve_and_publish` with the same or enriched input again — repeated identical retries were not found to reliably resolve it, while this pattern reliably avoids the timeout entirely (though it does not guarantee the job side will succeed — see [place-validation-workaround.md](place-validation-workaround.md) for the next most common failure once company enrichment is no longer the blocker).
+- Reuse a known `torre_id` before considering a new direct publication.
+- If the first attempt terminates with `request_processing_failed` / "Timed out waiting for company enrichment", route to this `direct_publish` → `torre_id` pattern instead of retrying `resolve_and_publish` with the same or enriched input again. Repeated identical retries were not found to resolve it reliably.
+- If the final company payload contains only `name`, require explicit operator approval. Without approval, return `manual_review` with `duplicate_company_risk`.
+- Use a new `request_id` for each changed request body. Never reuse the failed resolve request id for the direct fallback.
+- This pattern avoids the company-enrichment timeout but does not guarantee that the job side succeeds; see [place-validation-workaround.md](place-validation-workaround.md) for place failures after company resolution.

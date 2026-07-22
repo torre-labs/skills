@@ -68,7 +68,11 @@ The fallback is usable only when the output has:
 - `name`
 - at least one of `websiteUrl` or `identifierLink`
 
-Exception: when routing around a `request_processing_failed` company-enrichment timeout rather than building this evidence-based fallback, a name-only payload is an accepted narrower case — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md) for the tradeoff.
+Exception: when routing around the exact `request_processing_failed`
+company-enrichment timeout, a name-only payload is a narrower last resort. It
+requires explicit operator confirmation every time because Spider performs no
+local company deduplication before calling Torre. See
+[company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md).
 
 If the company name is missing or the only URL is an aggregator/listing URL, do not direct-publish. Return:
 
@@ -85,5 +89,9 @@ Before submitting:
 - Confirm `websiteUrl` is not an ATS provider, search result, or listing index.
 - Confirm `identifierLink` is not a personal LinkedIn profile.
 - Confirm the selected name matches the job/company source.
+- Reuse a known `torre_id` instead of direct-publishing a new company.
+- Include a verified `websiteUrl` or `identifierLink` whenever available.
+- Obtain explicit operator confirmation before every name-only
+  `company.direct_publish`; without confirmation, return `manual_review`.
 - Confirm the company evidence came from a current browser/source read, or record why that read was impossible.
 - Add a new `request_id` because the fallback body differs from the failed resolve request.

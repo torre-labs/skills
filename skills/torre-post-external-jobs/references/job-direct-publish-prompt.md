@@ -38,12 +38,18 @@ Rules:
 - Exclude navigation, application forms, cookie banners, legal boilerplate, and repeated page chrome.
 - If the source contains explicit compensation, including structured salary fields, include it in `opportunity.compensation`; use `to-be-agreed` only when compensation is genuinely absent or non-numeric.
 - Keep `intent` as `"post-job"` and `published` as `true`.
+- Use `deadline.type: "specific-date"` only when the source supplies a valid
+  closing date that is today or later. Otherwise use `{ "type": "never" }`.
+  Never copy a fixed example date.
 - Set `crawled` from an explicit operator/source boolean when provided; otherwise omit it or use `true`. Use `false` only when the operator or source explicitly marks the opportunity as non-crawled.
 - Keep `crawledSource` as `"external"` unless the operator provided another valid source type.
 - Use `job_url` as `opportunity.externalApplicationUrl` only when it is a canonical role page. Do not use an aggregator/listing index.
 - Set top-level `subjectId` to `direct_publish_subject_id`. If no value is supplied, use `1529406`. Never derive `subjectId` from `sharer_gg_id` or a member GGID unless that same subject is explicitly confirmed as crawler-enabled.
 - Put the provided sharer under `opportunity.sharers`.
-- Put explicit posting members under `opportunity.members` only when they are already Torre-ready member objects. Each member must include a resolvable identity (`ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`), `manager`, `poster`, `member`, `status`, `visible`, and `position`.
+- Put explicit posting members under `opportunity.members` only when they are
+  already Torre-ready member objects. Each member must include a non-empty
+  `ggId`, `manager`, `poster`, `member`, `status`, `visible`, and `position`.
+  Spider accepts `status: "pending"` or `"accepted"`.
 - Do not output raw ggId arrays or partial member objects. If no valid posting members are supplied, output `"members": []`.
 - Do not make `leader` a required member field; Discovery treats it as optional.
 - If the previous resolve attempt ended with `terminal_reason: "insufficient_strengths"`, derive at least one explicit `opportunity.strengths` entry from the current source evidence before submitting. If no source-backed strength can be justified, return `manual_review_reason` instead of direct-publishing.
@@ -67,8 +73,7 @@ Return a JSON object that can be placed directly under `job.publish_payload`:
     "externalApplicationUrl": "https://jobs.example.com/senior-backend-engineer",
     "externalId": null,
     "deadline": {
-      "type": "specific-date",
-      "deadline": "2026-07-15T00:00:00.000Z"
+      "type": "never"
     },
     "agreement": {
       "type": "employment-contract",

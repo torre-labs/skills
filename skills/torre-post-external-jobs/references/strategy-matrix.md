@@ -36,7 +36,13 @@ Before building `job.direct_publish`, open the canonical job URL in a browser or
 | Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + `job.direct_publish` |
 | Company-only resolve failed | company-only `company.direct_publish` |
 
-For the specific `request_processing_failed` company-enrichment timeout, a minimal `company.direct_publish` (name only) followed by `company.resolve_and_publish {torre_id} + job.resolve_and_publish` is enough — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md). This is lighter than assembling a full `company.publish_payload`, and keeps the job on `resolve_and_publish` rather than forcing `job.direct_publish`.
+For the specific `request_processing_failed` company-enrichment timeout, first
+reuse a known `torre_id`. If none is available, the narrower
+`company.direct_publish` then `company.resolve_and_publish {torre_id} +
+job.resolve_and_publish` workaround may be used. A name-only company payload
+requires explicit operator confirmation every time because Spider performs no
+local company deduplication. See
+[company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md).
 
 Do not fallback when:
 
@@ -53,14 +59,24 @@ Recoverable errors that should trigger browser/source remediation:
 - `request_processing_failed` timeout on the company side (distinct from a job-page timeout — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md))
 - missing opportunity id
 - extraction returned empty or unusable job content
-- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md) for a `raw_text`-based mitigation to try before a full direct-publish fallback)
+- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md) for a source-faithful explicit-place fallback or `manual_review`)
 - `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
-- `redirect_not_acceptable` when the original URL does not cleanly land on a stable single-role page
+- `redirect_not_acceptable` when Spider rejects a malformed, non-HTTP, looping,
+  or over-limit HTTP redirect chain
 
-During remediation, follow only clean redirects. A clean redirect lands automatically on a stable single-role page without a manual click, form, login, country selector, search page, alert signup, or "continue" screen. If the redirect is not clean, do not publish from the intermediate page; use a final role URL, trusted `raw_html`/`raw_text`, or mark the row `manual_review`.
+During remediation, follow only clean HTTP redirects. Spider requires every 3xx
+hop to have a usable HTTP(S) `Location`, no loop, and no hop-limit overflow. A
+`200` wrapper that still needs a click, login, search, or form is not a Spider
+redirect failure; use a final role URL, trusted `raw_html`/`raw_text`, or mark
+the row `manual_review`.
 
-For place/location validation failures, do not loop indefinitely on resolve. After the second resolve attempt, assemble a direct payload with an explicit valid Discovery `place`. Hybrid direct-publish payloads use `remote=true`; physical-location payloads use `remote=false`.
+For place/location validation failures, do not loop indefinitely on resolve or
+remove location evidence. After the second resolve attempt, assemble a direct
+payload only when the source supports an explicit valid Discovery `place`;
+otherwise mark `manual_review`. Hybrid direct-publish payloads use
+`remote=true`; physical-location payloads use `remote=false`. Verify the
+published place before recording success.
 
 For insufficient strengths, the direct fallback must include source-backed `opportunity.strengths`; do not submit an empty strengths array as the fallback.
 

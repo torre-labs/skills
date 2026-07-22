@@ -104,6 +104,8 @@ At least one strong identifier must be present:
 At least one of these must be present:
 
 - `job_url`
+- `external_application_url`
+- `externalApplicationUrl` (accepted alias)
 - `raw_text`
 - `raw_html`
 
@@ -120,40 +122,63 @@ At least one of these must be present:
 
 ### Content precedence
 
-The extraction source of truth is:
+When a fetchable `job_url` is present, Spider fetches that URL first. It resolves
+clean redirects, uses the final URL as the canonical local job URL, and acquires
+the current source snapshot before extraction.
+
+`raw_html` and `raw_text` are fallback sources only when URL acquisition fails or when no fetchable `job_url` is present.
+
+When no fetchable `job_url` is present, caller-provided content uses this order:
 
 1. `raw_html`
 2. `raw_text`
-3. `job_url`
 
 ### URL and redirect contract
 
-`job_url` must be a verified role source, not a bridge page. If the selected URL is a redirect, wrapper, aggregator, or shortlink, follow it only when it is a clean redirect: the browser or HTTP client lands automatically on a stable single-role page without a manual click, form, login, country selector, search page, alert signup, or "continue" screen.
+`job_url` must be a verified role source, not a bridge page. Spider's clean
+redirect contract is technical: every HTTP 3xx hop must contain a usable
+HTTP(S) `Location`, the chain must not loop, and it must remain within Spider's
+hop limit.
 
 When the redirect is clean:
 
 - use the final stable role URL as `job_url`
 - keep the original wrapper URL only in metadata or as `external_application_url` when it is intentionally the public application link
 
-When the redirect is not clean:
+When an HTTP redirect chain is not clean:
 
 - do not send the wrapper as `job_url`
 - do not extract `raw_text` or `raw_html` from the wrapper page
-- block the request as `redirect_not_acceptable` until a final role URL or trustworthy role content is available
+- expect Spider to return `redirect_not_acceptable` with a redirect diagnostic
+  such as `redirect_missing_location`, `redirect_invalid_location`,
+  `redirect_non_http_location`, `redirect_loop`, or `redirect_too_many_hops`
+
+A page that returns `200` but requires a manual click, login, search, or form is
+not an HTTP redirect failure. Do not label it `redirect_not_acceptable` unless
+Spider returns that terminal reason. Treat it as an unverified wrapper and use
+a final role URL, complete fallback content, or `manual_review`.
 
 If manual content and `job_url` are both present:
 
-- extraction uses the manual content
-- `job_url` stays as the canonical URL
+- Spider still acquires and extracts the current content from `job_url` first
+- manual content remains auxiliary fallback evidence if URL acquisition fails
+- `job_url` stays as the canonical local URL
 - `job_url` becomes the final external application URL unless `external_application_url` is explicitly supplied
 
-Manual content must be complete enough to be the extraction source. Do not send a short listing snippet, rewritten summary, or truncated description as `raw_text` when the canonical job page is readable. If the manual content omits role-critical evidence such as compensation, location, commitment, requirements, or application instructions, the API will not use `job_url` to recover those missing fields.
+Manual fallback content must be complete enough to stand alone. Do not send a
+short listing snippet, rewritten summary, or truncated description as
+`raw_text`. If URL acquisition fails, the fallback must still preserve
+role-critical evidence such as compensation, location, commitment,
+requirements, and application instructions.
 
 When available, preserve structured job data such as JSON-LD in `raw_html` or source evidence. Prefer sending `raw_html` over summarized `raw_text` when the page includes structured salary, location, or employment fields.
 
 ### Practical notes
 
-- If `job_url` is missing, the request may still process the job but cannot publish it.
+- If `job_url` is missing, supply complete `raw_html` or `raw_text`. Use
+  `external_application_url` when the Torre application URL differs or cannot
+  be derived from `job_url`; otherwise the request may finish with
+  `missing_external_application_url`.
 - Do not use board indexes or listing homepages as `job_url`.
 - If the caller wants explicit sharer attribution in this strategy, use `job.input.sharer_gg_id`.
 - `job.input.crawled` is an optional boolean. Omit it for the API default of `true`; send `false` only when the operator or source explicitly says the resulting opportunity should not be marked as crawled.
@@ -172,7 +197,7 @@ When available, preserve structured job data such as JSON-LD in `raw_html` or so
 
 ### Discovery-ready contract
 
-Treat this as a Discovery-ready `SaveExternalOpportunityDTO`, not just a URL.
+Treat this as a Discovery-ready `SaveFullOpportunityDTO`, not just a URL.
 Spider normalizes safe empty arrays for `members`, `languages`, `attachments`,
 and non-timezone `timezones`, but the agent should send the complete contract
 when building a direct fallback.
@@ -188,8 +213,8 @@ Required or expected fields:
 - `opportunity.externalApplicationUrl`: canonical role/application URL
 - `opportunity.organizations`: the resolved Torre organization, using numeric
   `id` and `code` when the Torre id is numeric
-- `opportunity.strengths`: unique skill terms, each with numeric `id` (or
-  `code`) and valid `proficiency` or `experience`
+- `opportunity.strengths`: unique skill terms with a valid `proficiency` or
+  `experience`; include the numeric Discovery `id` when it is known
 - `opportunity.languages`: `[]` or valid language objects
 - `opportunity.place`: valid Discovery place object
 - `opportunity.details`: valid detail blocks, usually
@@ -201,6 +226,8 @@ Required or expected fields:
   attribution is required
 - `opportunity.compensation`: source compensation when present; otherwise a
   truthful `to-be-agreed` object
+- `opportunity.deadline`: use `specific-date` only when the source supplies a
+  valid date that is today or later; otherwise use `{ "type": "never" }`
 
 Discovery accepts these detail codes: `benefits`, `stock-compensations`,
 `crawl-description`, `reason`, `responsibilities`, `requirements`,
@@ -219,7 +246,7 @@ Discovery accepts these detail codes: `benefits`, `stock-compensations`,
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.
 - `job.publish_payload.opportunity.crawled` is optional. Omit it for the API default of `true`; preserve an explicit boolean when the source payload already provides one.
 - `job.publish_payload.opportunity.members` is optional, but Discovery reads it as `SaveMemberDTO[]` when the opportunity is created. If you include it, send an array of objects with:
-  - one resolvable identity: `ggId`, `subjectId`, `personId`, `contactId`, or `name` plus `email`
+  - a non-empty `ggId`, which Spider's direct-publish validator requires
   - required flags: `manager`, `poster`, `member`, `visible`
   - required metadata: `status` (`pending` or `accepted`) and `position`
 - Do not send a raw array of ggIds, names, profile URLs, or partial `{ "ggId": "..." }` objects. If there are no valid posting members, use `members: []`.
@@ -239,8 +266,9 @@ Discovery accepts these detail codes: `benefits`, `stock-compensations`,
   `location=[]`, `timezones=[]`
 - `remote_timezones`: `remote=true`, `anywhere=false`, `timezone=true`,
   `location=[]`, and exactly two timezone offsets such as
-  `["-08:00", "-07:00"]`; normalize aliases like `PST`, `PT`, `EST`, `ET`,
-  `CET`, or `GMT-5` to offsets
+  `["-08:00", "-07:00"]`; convert aliases like `PST`, `PT`, `EST`, `ET`,
+  `CET`, or `GMT-5` to explicit offsets before direct publication because the
+  direct-publish validator expects offsets
 - `remote_countries`: `remote=true`, `anywhere=false`, `timezone=false`, with
   at least one country location containing `id`, `countryCode`, `countryName`,
   and numeric `timezone`
