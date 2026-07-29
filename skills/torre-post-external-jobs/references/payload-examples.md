@@ -397,6 +397,7 @@ Use a new `request_id` because this payload is different from the failed resolve
     "input": {
       "job_url": "https://jobs.acme.com/backend-engineer",
       "title_hint": "Senior Backend Engineer",
+      "source_preference": "provided",
       "raw_text": "Senior Backend Engineer. Remote, United States. Full-time employment contract. Acme Labs is hiring a Senior Backend Engineer to build APIs, async systems, and platform services. Required skills include Node.js, TypeScript, PostgreSQL, distributed systems, and API design. Compensation is USD 150,000 to USD 180,000 per year. Apply through https://jobs.acme.com/backend-engineer.",
       "sharer_gg_id": "16180"
     }
@@ -496,6 +497,32 @@ assemble this payload from browser evidence after a resolve failure.
           "negotiable": false
         }
       }
+    }
+  }
+}
+```
+
+## 10. Browser Evidence Remediation After Job Resolve Failure
+
+Use a new `request_id` and keep the known Torre organization id. The complete
+browser capture still goes through `job.resolve_and_publish`.
+
+```json
+{
+  "request_id": "8f9f5716-7423-4f42-af88-f8347a50b982",
+  "company": {
+    "strategy": "resolve_and_publish",
+    "input": {
+      "torre_id": "acme-labs"
+    }
+  },
+  "job": {
+    "strategy": "resolve_and_publish",
+    "input": {
+      "job_url": "https://jobs.acme.com/backend-engineer",
+      "source_preference": "provided",
+      "raw_html": "<article><script type=\"application/ld+json\">{\"@type\":\"JobPosting\"}</script><h1>Senior Backend Engineer</h1><p>Complete rendered job content...</p></article>",
+      "sharer_gg_id": "16180"
     }
   }
 }
