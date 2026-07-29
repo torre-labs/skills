@@ -107,20 +107,27 @@ Minimum fields per row:
 - `status`
 - `attempts`
 - `resolve_request_id`
-- `remediation_request_id`
-- `remediation_strategy`
+- `fallback_request_id`
+- `fallback_strategy`
 - `browser_snapshot_path`
-- `remediation_blocked_reason`
+- `fallback_blocked_reason`
 - `last_error`
 - `last_resolve_error`
-- `last_remediation_error`
+- `last_fallback_error`
 - `last_status_check_at`
 
 Use `crawled` as a nullable boolean in the queue. Keep it `null` when the source/operator did not specify it, because the ingest API defaults omitted `crawled` values to `true`.
 
 Recommended statuses:
 
-`discovered -> selected -> resolved -> ready -> submitted -> polling -> remediation_ready -> remediation_submitted -> remediation_polling -> posted|skipped|failed|manual_review`
+`discovered -> selected -> resolved -> ready -> submitted -> polling -> fallback_ready -> fallback_submitted -> fallback_polling -> posted|skipped|failed|manual_review`
+
+The `fallback_*` fields and statuses are the durable queue schema. Keep these
+names when creating or resuming runs so existing queues need no schema
+migration. Here, fallback means exactly one provided-evidence
+`job.resolve_and_publish` source remediation after the normal resolve attempt.
+It never means `job.direct_publish` or an agent-built job payload, place, or
+strengths.
 
 ### 5. Process the queue by phase
 
@@ -156,27 +163,34 @@ Recommended statuses:
 
 #### Polling
 
-- move async rows to `polling`
-- when the resolve request succeeds, update terminal outcomes as `posted` or `skipped`
-- when a URL-acquisition resolve request fails but the source is still
-  trustworthy, move the row to `remediation_ready` instead of `failed`
-- when a URL-acquisition request returns `completed_with_skips` with
+- move first-pass async rows to `polling` and provided-evidence fallback rows to
+  `fallback_polling`
+- read `source_preference` from the submitted request and apply terminal
+  transitions before generic success or skip handling
+- when a provided-evidence request with `source_preference: "provided"` fails
+  or returns `completed_with_skips` with
+  `terminal_reason: "insufficient_strengths"`, move the row to `manual_review`
+  and stop polling; never count it as a final `skipped`, move it back to
+  `fallback_ready`, or retry it
+- only when a first-pass URL-acquisition resolve request fails and the source is
+  still trustworthy, move the row to `fallback_ready` instead of `failed`
+- only when a first-pass URL-acquisition request returns `completed_with_skips` with
   `terminal_reason: "insufficient_strengths"` and the source remains
-  trustworthy, move the row to `remediation_ready`
-- if the failed request already used complete evidence with
-  `source_preference: "provided"`, move the row to `manual_review`; do not
-  resubmit the same evidence
+  trustworthy, move the row to `fallback_ready` instead of counting the skip as
+  final
+- after those rules, update remaining terminal outcomes as `posted`, `skipped`,
+  `failed`, or `manual_review`
 - update `failed` or `manual_review` only after source remediation has been
   evaluated
 - do not make more than two `resolve_and_publish` attempts for the same
   canonical job: one normal attempt and one provided-evidence remediation
 
-#### Source Remediation
+#### Fallback (Provided-Evidence Source Remediation)
 
-- for every `remediation_ready` row, run browser/source remediation:
+- for every `fallback_ready` row, run browser/source remediation:
   - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
   - follow only clean HTTP redirect chains to a stable single-role page
-  - set `remediation_blocked_reason` to `redirect_not_acceptable` only when Spider
+  - set `fallback_blocked_reason` to `redirect_not_acceptable` only when Spider
     reports that terminal reason; otherwise classify an unverified wrapper
     separately as `manual_review`
   - capture the final URL, page title, complete rendered job text, HTML, and
@@ -184,10 +198,11 @@ Recommended statuses:
   - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description
   - if neither source exposes enough role content, set
-    `remediation_blocked_reason` and move the row to `manual_review`
+    `fallback_blocked_reason` and move the row to `manual_review`
 - submit the complete capture through `job.resolve_and_publish` with the
   canonical `job_url`, `source_preference: "provided"`, and `raw_html` or
   `raw_text`
+- never use `job.direct_publish` for this fallback
 - do not build `job.publish_payload`, `opportunity.place`, or
   `opportunity.strengths` in the batch operator
 - for a company-enrichment timeout, reuse a known `torre_id`; if only a
@@ -196,16 +211,16 @@ Recommended statuses:
 - for place/location validation failures, preserve all location and modality
   evidence; if Spider still rejects the provided-evidence request, move the row
   to `manual_review`
-- assign a new `remediation_request_id`; never reuse `resolve_request_id` with a different body
-- set `request_id` to the active remediation id while preserving
+- assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
+- set `request_id` to the active fallback id while preserving
   `resolve_request_id` for first-pass reporting
-- set `remediation_strategy` to `provided_evidence_resolve`
-- move rows to `remediation_submitted` or `remediation_polling`
+- set `fallback_strategy` to `provided_evidence_resolve`
+- move rows to `fallback_submitted` or `fallback_polling`
 - preserve the first-pass failure in `last_resolve_error`
-- preserve remediation failures separately in `last_remediation_error`
+- preserve source-remediation failures separately in `last_fallback_error`
 - count first-pass resolve effectiveness and final effectiveness separately in `report.md`
-- a batch is not complete while any row remains in `remediation_ready`,
-  `remediation_submitted`, or `remediation_polling`
+- a batch is not complete while any row remains in `fallback_ready`,
+  `fallback_submitted`, or `fallback_polling`
 - if more than 10% of selected jobs fail first-pass resolve, pause broad retries and run the browser remediation pass on a representative chunk before continuing
 
 ### 6. Checkpoint after every chunk
@@ -245,15 +260,15 @@ Example row:
   "crawled": null,
   "request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "resolve_request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
-  "remediation_request_id": null,
-  "remediation_strategy": null,
+  "fallback_request_id": null,
+  "fallback_strategy": null,
   "browser_snapshot_path": null,
-  "remediation_blocked_reason": null,
+  "fallback_blocked_reason": null,
   "status": "polling",
   "attempts": 1,
   "last_error": null,
   "last_resolve_error": null,
-  "last_remediation_error": null,
+  "last_fallback_error": null,
   "last_status_check_at": "2026-04-21T16:05:00Z"
 }
 ```
@@ -268,9 +283,9 @@ Keep `report.md` human-readable. Update counts such as:
 - ready
 - submitted
 - polling
-- remediation_ready
-- remediation_submitted
-- remediation_polling
+- fallback_ready
+- fallback_submitted
+- fallback_polling
 - posted
 - skipped
 - failed
@@ -279,17 +294,17 @@ Keep `report.md` human-readable. Update counts such as:
 Include these effectiveness metrics:
 
 - first-pass posted rate from `resolve_and_publish`
-- remediation attempted count
-- remediation posted rate
-- remediation blocked count and reasons
-- final posted rate after remediation
+- fallback provided-evidence remediation attempted count
+- fallback posted rate
+- fallback blocked count and reasons
+- final posted rate after fallback
 
 Also keep short sections for:
 
 - current source and filters
 - latest successful chunk
 - repeated failure reasons
-- repeated remediation failure reasons
+- repeated fallback failure reasons
 - browser/source remediation coverage
 - items needing manual follow-up
 
@@ -371,7 +386,7 @@ This example is intentionally sequential. If a run needs more throughput, first 
 | Run is interrupted | Resume from `queue.jsonl` |
 | Backend is under pressure | Slow polling and reduce chunk size |
 | Any request returns `429` | Pause the whole run, keep the row retryable, and retry later |
-| URL/source resolve fails but source is trustworthy | Move row to `remediation_ready` and retry once with complete provided evidence |
+| URL/source resolve fails but source is trustworthy | Move row to `fallback_ready` and retry once with complete provided evidence |
 | Many rows fail with timeout, missing opportunity id, extraction failure, or validation errors | Open failed jobs in browser/source remediation and send the captures through Spider |
 
 ## Common Mistakes
@@ -385,6 +400,7 @@ This example is intentionally sequential. If a run needs more throughput, first 
 - Reprocessing already terminal rows on resume
 - Publishing before the queue has a confirmed selected set
 - Assuming `playwright` is always the right browser path
-- Building direct job payloads in the batch operator instead of using the
-  shared Spider pipeline
+- Treating the durable fallback path as `job.direct_publish` or building direct
+  job payloads instead of sending one complete provided-evidence remediation
+  through the shared Spider pipeline
 - Ending the run with recoverable failed rows that were never opened in browser/source remediation
