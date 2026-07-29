@@ -104,6 +104,7 @@ Minimum fields per row:
 - `canonical_job_url`
 - `crawled`
 - `request_id`
+- `active_source_preference`
 - `status`
 - `attempts`
 - `resolve_request_id`
@@ -128,6 +129,10 @@ migration. Here, fallback means exactly one provided-evidence
 `job.resolve_and_publish` source remediation after the normal resolve attempt.
 It never means `job.direct_publish` or an agent-built job payload, place, or
 strengths.
+
+`active_source_preference` is the durable mode of the request identified by
+`request_id`. Persist it before each submission so polling and resumed runs do
+not depend on reconstructing the submitted request.
 
 ### 5. Process the queue by phase
 
@@ -156,6 +161,8 @@ strengths.
 
 - submit only `ready` rows
 - assign a stable `request_id` per submission
+- persist `active_source_preference: "url"` to `queue.jsonl` before the
+  first-pass POST, and send the same preference in that request
 - default to one in-flight submission at a time
 - wait at least `5000ms` between submit attempts unless the user has confirmed a safer backend-specific limit
 - when a submit returns `429` or a transient `5xx`, keep the row retryable and pause all submissions for at least `65000ms`
@@ -165,8 +172,9 @@ strengths.
 
 - move first-pass async rows to `polling` and provided-evidence fallback rows to
   `fallback_polling`
-- read `source_preference` from the submitted request and apply terminal
-  transitions before generic success or skip handling
+- read `source_preference` from the persisted `active_source_preference`, and
+  read the terminal reason explicitly from `data.error.terminal_reason`; apply
+  terminal transitions before generic success or skip handling
 - when a provided-evidence request with `source_preference: "provided"` fails
   or returns `completed_with_skips` with
   `terminal_reason: "insufficient_strengths"`, move the row to `manual_review`
@@ -214,6 +222,8 @@ strengths.
 - assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
 - set `request_id` to the active fallback id while preserving
   `resolve_request_id` for first-pass reporting
+- persist `active_source_preference: "provided"` to `queue.jsonl` before the
+  fallback POST, and send the same preference in that request
 - set `fallback_strategy` to `provided_evidence_resolve`
 - move rows to `fallback_submitted` or `fallback_polling`
 - preserve the first-pass failure in `last_resolve_error`
@@ -242,7 +252,12 @@ When the run restarts:
 - reload `queue.jsonl`
 - skip terminal rows
 - continue only rows still in non-terminal states
-- preserve each row's `request_id`, `attempts`, and latest known error context
+- preserve each row's `request_id`, `active_source_preference`, `attempts`, and
+  latest known error context
+- normalize legacy in-flight rows that lack `active_source_preference` before
+  polling: infer `"provided"` for `fallback_submitted` and `fallback_polling`,
+  infer `"url"` for `submitted` and `polling`, and persist the inferred value
+  back to `queue.jsonl`
 
 ## Queue File Pattern
 
@@ -259,6 +274,7 @@ Example row:
   "canonical_job_url": "https://jobs.acme.com/backend-engineer",
   "crawled": null,
   "request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
+  "active_source_preference": "url",
   "resolve_request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "fallback_request_id": null,
   "fallback_strategy": null,
@@ -336,11 +352,18 @@ const MAX_IN_FLIGHT_SUBMISSIONS = 1;
 
 for (const row of readyRows) {
   await waitForAvailableSubmissionSlot(MAX_IN_FLIGHT_SUBMISSIONS);
+  await persistQueuePatch(row, { active_source_preference: "url" });
 
   const response = await postJson(`${TORRE_API_URL}/crawling/ingest`, {
     request_id: row.request_id,
     company: row.company,
-    job: row.job
+    job: {
+      ...row.job,
+      input: {
+        ...row.job.input,
+        source_preference: row.active_source_preference
+      }
+    }
   });
 
   if (response.status === 429) {
@@ -368,7 +391,11 @@ for (const row of pollingRows) {
     continue;
   }
 
-  updateTerminalStateIfReady(row, response);
+  const terminalReason = response.data?.error?.terminal_reason ?? null;
+  updateTerminalStateIfReady(row, response, {
+    sourcePreference: row.active_source_preference,
+    terminalReason
+  });
   await sleep(STATUS_POLL_INTERVAL_MS);
 }
 ```
