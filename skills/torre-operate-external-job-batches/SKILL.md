@@ -352,6 +352,7 @@ const MAX_IN_FLIGHT_SUBMISSIONS = 1;
 
 for (const row of readyRows) {
   await waitForAvailableSubmissionSlot(MAX_IN_FLIGHT_SUBMISSIONS);
+  row.active_source_preference = "url";
   await persistQueuePatch(row, { active_source_preference: "url" });
 
   const response = await postJson(`${TORRE_API_URL}/crawling/ingest`, {
