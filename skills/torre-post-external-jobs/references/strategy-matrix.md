@@ -15,26 +15,42 @@ Use this matrix when choosing strategies for Torre Post External Jobs.
 3. If the user only wants organization publication, use a company-only request.
 4. If you do not know whether the company is already published, start with `company.resolve_and_publish + job.resolve_and_publish`.
 5. If you know the company is already published and you have its `torre_id`, use `company.resolve_and_publish` with `company.input.torre_id` and keep the job on `resolve_and_publish` by default.
-6. If the company fails in the resolve path and you can assemble a trustworthy Torre-ready organization payload, switch only the company to `company.direct_publish`.
-7. If the company succeeds but the job fails in the resolve path and you can assemble a Discovery-ready `SaveFullOpportunityDTO` payload, keep the company on `company.resolve_and_publish` with `torre_id` and switch only the job to `job.direct_publish`.
-8. Do not choose `job.direct_publish` only to control `crawled`; `job.resolve_and_publish` supports optional `job.input.crawled`.
-9. For the same canonical job, make at most two `resolve_and_publish` attempts total. The second attempt is only for remediated source evidence; after that, use `job.direct_publish` when the source is still trustworthy.
-10. Every fallback request with a different strategy or body shape must use a new `request_id`.
-11. Report first-pass `resolve_and_publish` effectiveness separately from final effectiveness after direct fallback.
-12. For recoverable job failures, browser/source remediation is required before final failure classification.
+6. If the company fails in the resolve path and a Torre-ready organization
+   payload is already available, switch only the company to
+   `company.direct_publish`.
+7. Use `job.direct_publish` only when a Discovery-ready
+   `SaveFullOpportunityDTO` payload existed before this workflow began. Do not
+   construct one from browser evidence after a resolver failure.
+8. Do not choose `job.direct_publish` only to control `crawled`;
+   `job.resolve_and_publish` supports optional `job.input.crawled`.
+9. For the same canonical job, make at most two `resolve_and_publish` attempts:
+   the normal request and one browser-remediated request with
+   `source_preference: "provided"`.
+10. Use a new `request_id` for the remediated request.
+11. If the provided-evidence request still fails, record `manual_review`; do
+    not create a second job payload contract in the agent.
+12. Report first-pass effectiveness separately from final effectiveness after
+    source remediation.
 
-## Fallback Policy After Resolve Failure
+## Source Remediation After Resolve Failure
 
-Use fallback when the first request reached a terminal failure but the source evidence is still good enough to publish manually through the API.
+Use source remediation when the first request reached a source-related terminal
+failure but the canonical detail page remains trustworthy and readable.
+If that request already used complete evidence with
+`source_preference: "provided"`, record `manual_review` instead of resubmitting
+the same evidence.
 
-Before building `job.direct_publish`, open the canonical job URL in a browser or equivalent source reader and capture current role evidence. Use stale listing snippets only as supporting metadata, not as the primary direct-publish source.
+Open the canonical job URL in a browser or equivalent source reader and capture
+complete current role evidence. Then submit a new `job.resolve_and_publish`
+request with the same canonical `job_url`, `source_preference: "provided"`,
+and complete `raw_html` or `raw_text`.
 
-| Failure point | Fallback request |
+| Failure point | Remediation request |
 | --- | --- |
-| Company resolve failed, job was never attempted | `company.direct_publish`, optionally plus original `job.resolve_and_publish` |
-| Company resolve failed and a Discovery-ready job payload can also be assembled | `company.direct_publish + job.direct_publish` |
-| Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + `job.direct_publish` |
-| Company-only resolve failed | company-only `company.direct_publish` |
+| Job source fetch or extraction failed | Original company strategy + remediated `job.resolve_and_publish` |
+| Company succeeded with `torre_id`, job resolve failed | `company.resolve_and_publish` with `company.input.torre_id` + remediated `job.resolve_and_publish` |
+| Company resolve failed, job was never attempted | Apply the documented company-only workaround; keep the job on `job.resolve_and_publish` |
+| Company-only resolve failed | Company-only remediation; no job contract is involved |
 
 For the specific `request_processing_failed` company-enrichment timeout, first
 reuse a known `torre_id`. If none is available, the narrower
@@ -44,12 +60,11 @@ requires explicit operator confirmation every time because Spider performs no
 local company deduplication. See
 [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md).
 
-Do not fallback when:
+Do not remediate when:
 
 - company identity is ambiguous
 - the job page is closed or unavailable
 - the only URL is an aggregator or listing index
-- direct publish was already attempted and Torre rejected the payload
 - the request is missing `sharer_gg_id` for job publication
 - the run policy excludes the role, such as remote-only runs encountering hybrid or physical jobs
 
@@ -59,26 +74,24 @@ Recoverable errors that should trigger browser/source remediation:
 - `request_processing_failed` timeout on the company side (distinct from a job-page timeout — see [company-enrichment-timeout-workaround.md](company-enrichment-timeout-workaround.md))
 - missing opportunity id
 - extraction returned empty or unusable job content
-- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md) for a source-faithful explicit-place fallback or `manual_review`)
-- `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when the source has enough role evidence to provide explicit strengths
+- place/location validation failed (see [place-validation-workaround.md](place-validation-workaround.md))
+- `completed_with_skips` with `terminal_reason: "insufficient_strengths"` when
+  the first request did not contain complete source evidence
 - the URL is a redirect, company search URL, or weak ATS wrapper but the role appears reachable
 - `redirect_not_acceptable` when Spider rejects a malformed, non-HTTP, looping,
-  or over-limit HTTP redirect chain
+  or over-limit HTTP redirect chain and a verified final role URL is available
+  independently
 
 During remediation, follow only clean HTTP redirects. Spider requires every 3xx
 hop to have a usable HTTP(S) `Location`, no loop, and no hop-limit overflow. A
 `200` wrapper that still needs a click, login, search, or form is not a Spider
-redirect failure; use a final role URL, trusted `raw_html`/`raw_text`, or mark
-the row `manual_review`.
+redirect failure; use a verified final role URL with complete provided evidence,
+or mark the row `manual_review`.
 
-For place/location validation failures, do not loop indefinitely on resolve or
-remove location evidence. After the second resolve attempt, assemble a direct
-payload only when the source supports an explicit valid Discovery `place`;
-otherwise mark `manual_review`. Hybrid direct-publish payloads use
-`remote=true`; physical-location payloads use `remote=false`. Verify the
-published place before recording success.
-
-For insufficient strengths, the direct fallback must include source-backed `opportunity.strengths`; do not submit an empty strengths array as the fallback.
+For place/location failures, do not remove location evidence. Send the complete
+source once with `source_preference: "provided"`; if validation still fails,
+mark `manual_review`. The agent must not construct `opportunity.place` or
+`opportunity.strengths`.
 
 ## Company-Only Paths
 
@@ -91,7 +104,9 @@ For insufficient strengths, the direct fallback must include source-backed `oppo
 
 - Use when the user only wants the company published and the organization payload is already Torre-ready.
 - Behavior: synchronous.
-- After a company resolve failure, build this payload with `company-direct-publish-prompt.md` and preserve the failed request evidence.
+- After a company resolve failure, use
+  [company-direct-publish-prompt.md](company-direct-publish-prompt.md) only
+  under the documented company workaround and preserve the failed evidence.
 
 ## Mixed Paths
 
@@ -100,7 +115,7 @@ For insufficient strengths, the direct fallback must include source-backed `oppo
 - Use when both sides are already Torre-ready.
 - Behavior: synchronous.
 - Errors: provider errors return inline.
-- Useful after both sides fail resolve but source evidence is still strong.
+- This is not a resolver fallback.
 
 ### 2. `company.direct_publish + job.resolve_and_publish`
 
@@ -142,6 +157,8 @@ Use when the job must be derived from:
 - `job_url`
 - `raw_text`
 - `raw_html`
+- `source_preference: "provided"` when complete trusted evidence should replace
+  source snapshot fetching
 - optional `crawled` metadata, when the operator or source explicitly provides a boolean
 
 ### `job.direct_publish`
