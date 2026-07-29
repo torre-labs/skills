@@ -104,6 +104,7 @@ Minimum fields per row:
 - `canonical_job_url`
 - `crawled`
 - `request_id`
+- `active_source_preference`
 - `status`
 - `attempts`
 - `resolve_request_id`
@@ -121,6 +122,17 @@ Use `crawled` as a nullable boolean in the queue. Keep it `null` when the source
 Recommended statuses:
 
 `discovered -> selected -> resolved -> ready -> submitted -> polling -> fallback_ready -> fallback_submitted -> fallback_polling -> posted|skipped|failed|manual_review`
+
+The `fallback_*` fields and statuses are the durable queue schema. Keep these
+names when creating or resuming runs so existing queues need no schema
+migration. Here, fallback means exactly one provided-evidence
+`job.resolve_and_publish` source remediation after the normal resolve attempt.
+It never means `job.direct_publish` or an agent-built job payload, place, or
+strengths.
+
+`active_source_preference` is the durable mode of the request identified by
+`request_id`. Persist it before each submission so polling and resumed runs do
+not depend on reconstructing the submitted request.
 
 ### 5. Process the queue by phase
 
@@ -149,6 +161,8 @@ Recommended statuses:
 
 - submit only `ready` rows
 - assign a stable `request_id` per submission
+- persist `active_source_preference: "url"` to `queue.jsonl` before the
+  first-pass POST, and send the same preference in that request
 - default to one in-flight submission at a time
 - wait at least `5000ms` between submit attempts unless the user has confirmed a safer backend-specific limit
 - when a submit returns `429` or a transient `5xx`, keep the row retryable and pause all submissions for at least `65000ms`
@@ -156,43 +170,67 @@ Recommended statuses:
 
 #### Polling
 
-- move async rows to `polling`
-- when the resolve request succeeds, update terminal outcomes as `posted` or `skipped`
-- when the resolve request fails but the source is still trustworthy, move the row to `fallback_ready` instead of `failed`
-- when the resolve request returns `completed_with_skips` with `terminal_reason: "insufficient_strengths"` and the source is still trustworthy, move the row to `fallback_ready` instead of treating the skip as final
-- update `failed` or `manual_review` only after the fallback path has also been evaluated
-- do not treat bulk retries of `resolve_and_publish` as fallback; they are still first-path retries
-- do not make more than two `resolve_and_publish` attempts for the same canonical job. After the second recoverable resolve outcome, use direct fallback or mark `manual_review`
+- move first-pass async rows to `polling` and provided-evidence fallback rows to
+  `fallback_polling`
+- read `source_preference` from the persisted `active_source_preference`, and
+  read the terminal reason explicitly from `data.error.terminal_reason`; apply
+  terminal transitions before generic success or skip handling
+- when a provided-evidence request with `source_preference: "provided"` fails
+  or returns `completed_with_skips` with
+  `terminal_reason: "insufficient_strengths"`, move the row to `manual_review`
+  and stop polling; never count it as a final `skipped`, move it back to
+  `fallback_ready`, or retry it
+- only when a first-pass URL-acquisition resolve request fails and the source is
+  still trustworthy, move the row to `fallback_ready` instead of `failed`
+- only when a first-pass URL-acquisition request returns `completed_with_skips` with
+  `terminal_reason: "insufficient_strengths"` and the source remains
+  trustworthy, move the row to `fallback_ready` instead of counting the skip as
+  final
+- after those rules, update remaining terminal outcomes as `posted`, `skipped`,
+  `failed`, or `manual_review`
+- update `failed` or `manual_review` only after source remediation has been
+  evaluated
+- do not make more than two `resolve_and_publish` attempts for the same
+  canonical job: one normal attempt and one provided-evidence remediation
 
-#### Fallback
+#### Fallback (Provided-Evidence Source Remediation)
 
-- for every `fallback_ready` row, run browser/source remediation before building the fallback payload:
+- for every `fallback_ready` row, run browser/source remediation:
   - open the canonical job URL in Chrome, a connected browser, or the browser tool available in the current agent
   - follow only clean HTTP redirect chains to a stable single-role page
   - set `fallback_blocked_reason` to `redirect_not_acceptable` only when Spider
     reports that terminal reason; otherwise classify an unverified wrapper
     separately as `manual_review`
-  - capture the final URL, page title, visible job text, HTML, and structured job data such as JSON-LD when available
+  - capture the final URL, page title, complete rendered job text, HTML, and
+    structured job data such as JSON-LD when available
   - save the evidence under `artifacts/` and write its path to `browser_snapshot_path`
   - if browser access is blocked, try the public ATS/API source only when it returns the full job description
-  - if neither source exposes enough role content, set `fallback_blocked_reason` and move the row to `manual_review`
-- use `torre-post-external-jobs` fallback rules to build `company.direct_publish`, `job.direct_publish`, or both from the remediated evidence
+  - if neither source exposes enough role content, set
+    `fallback_blocked_reason` and move the row to `manual_review`
+- submit the complete capture through `job.resolve_and_publish` with the
+  canonical `job_url`, `source_preference: "provided"`, and `raw_html` or
+  `raw_text`
+- never use `job.direct_publish` for this fallback
+- do not build `job.publish_payload`, `opportunity.place`, or
+  `opportunity.strengths` in the batch operator
 - for a company-enrichment timeout, reuse a known `torre_id`; if only a
   name-only company payload remains, move the row to `manual_review` until the
   operator explicitly approves that duplicate-company risk
-- for place/location validation failures, preserve all location evidence and
-  build the fallback with an explicit valid `place`; if the evidence is
-  ambiguous or cannot be canonicalized, move the row to `manual_review`
-- after a place fallback publishes, verify the public objective, organization,
-  place, external application URL, and requested Subtorre before recording
-  success
-- for insufficient-strengths skips, build the fallback with explicit source-backed `opportunity.strengths`; do not submit `strengths: []`
+- for place/location validation failures, preserve all location and modality
+  evidence; if Spider still rejects the provided-evidence request, move the row
+  to `manual_review`
 - assign a new `fallback_request_id`; never reuse `resolve_request_id` with a different body
+- set `request_id` to the active fallback id while preserving
+  `resolve_request_id` for first-pass reporting
+- persist `active_source_preference: "provided"` to `queue.jsonl` before the
+  fallback POST, and send the same preference in that request
+- set `fallback_strategy` to `provided_evidence_resolve`
 - move rows to `fallback_submitted` or `fallback_polling`
 - preserve the first-pass failure in `last_resolve_error`
-- preserve fallback failures separately in `last_fallback_error`
+- preserve source-remediation failures separately in `last_fallback_error`
 - count first-pass resolve effectiveness and final effectiveness separately in `report.md`
-- a batch is not complete while any row remains in `fallback_ready`, `fallback_submitted`, or `fallback_polling`
+- a batch is not complete while any row remains in `fallback_ready`,
+  `fallback_submitted`, or `fallback_polling`
 - if more than 10% of selected jobs fail first-pass resolve, pause broad retries and run the browser remediation pass on a representative chunk before continuing
 
 ### 6. Checkpoint after every chunk
@@ -214,7 +252,12 @@ When the run restarts:
 - reload `queue.jsonl`
 - skip terminal rows
 - continue only rows still in non-terminal states
-- preserve each row's `request_id`, `attempts`, and latest known error context
+- preserve each row's `request_id`, `active_source_preference`, `attempts`, and
+  latest known error context
+- normalize legacy in-flight rows that lack `active_source_preference` before
+  polling: infer `"provided"` for `fallback_submitted` and `fallback_polling`,
+  infer `"url"` for `submitted` and `polling`, and persist the inferred value
+  back to `queue.jsonl`
 
 ## Queue File Pattern
 
@@ -231,6 +274,7 @@ Example row:
   "canonical_job_url": "https://jobs.acme.com/backend-engineer",
   "crawled": null,
   "request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
+  "active_source_preference": "url",
   "resolve_request_id": "a6f5b64f-7a5f-4f1d-8e4c-0f26d6df4f52",
   "fallback_request_id": null,
   "fallback_strategy": null,
@@ -266,7 +310,7 @@ Keep `report.md` human-readable. Update counts such as:
 Include these effectiveness metrics:
 
 - first-pass posted rate from `resolve_and_publish`
-- fallback attempted count
+- fallback provided-evidence remediation attempted count
 - fallback posted rate
 - fallback blocked count and reasons
 - final posted rate after fallback
@@ -308,11 +352,19 @@ const MAX_IN_FLIGHT_SUBMISSIONS = 1;
 
 for (const row of readyRows) {
   await waitForAvailableSubmissionSlot(MAX_IN_FLIGHT_SUBMISSIONS);
+  row.active_source_preference = "url";
+  await persistQueuePatch(row, { active_source_preference: "url" });
 
   const response = await postJson(`${TORRE_API_URL}/crawling/ingest`, {
     request_id: row.request_id,
     company: row.company,
-    job: row.job
+    job: {
+      ...row.job,
+      input: {
+        ...row.job.input,
+        source_preference: row.active_source_preference
+      }
+    }
   });
 
   if (response.status === 429) {
@@ -340,7 +392,11 @@ for (const row of pollingRows) {
     continue;
   }
 
-  updateTerminalStateIfReady(row, response);
+  const terminalReason = response.data?.error?.terminal_reason ?? null;
+  updateTerminalStateIfReady(row, response, {
+    sourcePreference: row.active_source_preference,
+    terminalReason
+  });
   await sleep(STATUS_POLL_INTERVAL_MS);
 }
 ```
@@ -358,8 +414,8 @@ This example is intentionally sequential. If a run needs more throughput, first 
 | Run is interrupted | Resume from `queue.jsonl` |
 | Backend is under pressure | Slow polling and reduce chunk size |
 | Any request returns `429` | Pause the whole run, keep the row retryable, and retry later |
-| Resolve fails but source is trustworthy | Move row to `fallback_ready` and try direct fallback |
-| Many rows fail with timeout, missing opportunity id, extraction failure, or validation errors | Open failed jobs in browser/source remediation and build direct payloads |
+| URL/source resolve fails but source is trustworthy | Move row to `fallback_ready` and retry once with complete provided evidence |
+| Many rows fail with timeout, missing opportunity id, extraction failure, or validation errors | Open failed jobs in browser/source remediation and send the captures through Spider |
 
 ## Common Mistakes
 
@@ -372,5 +428,7 @@ This example is intentionally sequential. If a run needs more throughput, first 
 - Reprocessing already terminal rows on resume
 - Publishing before the queue has a confirmed selected set
 - Assuming `playwright` is always the right browser path
-- Treating URL rewriting or another resolve retry as the pass-through fallback
+- Treating the durable fallback path as `job.direct_publish` or building direct
+  job payloads instead of sending one complete provided-evidence remediation
+  through the shared Spider pipeline
 - Ending the run with recoverable failed rows that were never opened in browser/source remediation
