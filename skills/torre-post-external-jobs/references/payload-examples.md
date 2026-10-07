@@ -404,9 +404,10 @@ Use a new `request_id` because this payload is different from the failed resolve
 }
 ```
 
-## 9. Job Fallback After Company Resolve Succeeded
+## 9. Caller-Supplied Direct Job After Company Resolve Succeeded
 
-Use this when the previous request produced a Torre organization id but the job resolve path failed.
+Use this only when the caller already has a Discovery-ready job payload. Do not
+assemble this payload from browser evidence after a resolve failure.
 
 ```json
 {
@@ -504,13 +505,12 @@ Use this when the previous request produced a Torre organization id but the job 
 
 - Add `request_id` when you want idempotent retries.
 - Reuse `request_id` only with the exact same payload.
-- When switching from `resolve_and_publish` to a direct fallback, always use a new `request_id`.
+- Use a new `request_id` for a provided-evidence remediation request.
 - If the company is already known in Torre, prefer `company.resolve_and_publish` with `company.input.torre_id`.
 - If `job.resolve_and_publish` includes both `job_url` and manual content, keep both.
-- When `job_url` is fetchable, Spider acquires that URL first; manual content is
-  fallback evidence only if URL acquisition fails. Any supplied fallback must
-  be complete and preserve explicit compensation, location, commitment,
-  requirements, and application instructions.
+- Use `source_preference: "provided"` when trusted browser evidence should be
+  the source snapshot. It must preserve explicit compensation, location,
+  commitment, requirements, application instructions, and structured data.
 - For `job.direct_publish`, use `deadline.type: "specific-date"` only when the
   source provides a valid closing date that is today or later. Otherwise use
   `deadline.type: "never"`; never copy a fixed date from documentation.

@@ -16,13 +16,12 @@ Discovery validation. Conflicting source signals are common: for example, a
 listing header may say Madrid while the body says Tres Cantos, or a single post
 may advertise the role in several cities.
 
-## Spider source precedence
+## Spider source contract
 
-When a fetchable `job_url` is present, Spider resolves clean redirects and
-acquires the current source from that URL before extraction. Caller-provided
-`raw_html` and `raw_text` are auxiliary fallback content only when URL
-acquisition fails. Supplying edited `raw_text` alongside a readable `job_url`
-does not override the URL snapshot.
+URL acquisition is the default. When a trusted browser captures the complete
+canonical detail page, send `source_preference: "provided"` with `raw_html` or
+`raw_text`. Spider still resolves `job_url` for canonicalization,
+deduplication, and application routing.
 
 Do not remove location evidence from `raw_text`, `raw_html`, structured data,
 the title, or the canonical URL to bypass validation. Location and work-mode
@@ -30,33 +29,24 @@ signals are candidate-critical source truth.
 
 ## Remediation
 
-1. Reopen the canonical role page and capture the current title, organization,
-   application URL, work mode, every stated location, and structured
-   `JobPosting` data.
-2. Reconcile apparent conflicts using explicit source evidence. Do not infer a
-   city, country, timezone, remote policy, or work mode that the source does not
-   support.
-3. Make at most one remediated `job.resolve_and_publish` retry, for no more than
-   two resolve attempts total for the canonical job.
-4. If place validation still fails, use `job.direct_publish` only when the
-   current source supports a complete Discovery-ready payload and an explicit
-   valid `opportunity.place`:
-   - `remote_anywhere`: `remote=true`, `anywhere=true`, `timezone=false`,
-     `location=[]`, `timezones=[]`
-   - `remote_timezones`: `remote=true`, `anywhere=false`, `timezone=true`,
-     `location=[]`, and exactly two valid timezone offsets
-   - `remote_countries`: `remote=true`, `anywhere=false`, `timezone=false`, and
-     at least one canonical country location
-   - `hybrid`: `remote=true`, `anywhere=false`, `timezone=false`, and at least
-     one canonical concrete work location
-   - `physical_location`: `remote=false`, `anywhere=false`, `timezone=false`,
-     and at least one canonical concrete work location
-5. If the source is ambiguous, contradictory, or cannot be mapped to valid
-   canonical locations without guessing, stop at `manual_review` with
-   `ambiguous_or_uncanonicalizable_place`.
+1. Reopen the canonical role page and capture complete rendered HTML when
+   possible, including title, organization, application URL, work mode, every
+   stated location, and structured `JobPosting` data.
+2. Keep all location and modality evidence intact. Do not infer, rewrite, or
+   remove a city, country, timezone, remote policy, or work mode.
+3. Submit one new `job.resolve_and_publish` request with a new `request_id`,
+   `source_preference: "provided"`, the canonical `job_url`, and the complete
+   evidence.
+4. If place validation still fails, stop at `manual_review` with Spider's exact
+   validation reason and the captured evidence.
 
-Use a new `request_id` for the direct fallback because its body differs from the
-failed resolve request.
+If the failed request already used the same complete evidence with
+`source_preference: "provided"`, skip step 3 and go directly to
+`manual_review`.
+
+Do not build an explicit `opportunity.place` or switch the job to
+`job.direct_publish` as remediation. Place assembly and validation belong to
+the shared Spider posting pipeline.
 
 ## Fidelity verification
 
