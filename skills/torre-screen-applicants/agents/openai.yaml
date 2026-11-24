@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Screen Applicants"
+  short_description: "Screen applicants against your must-haves and move them"
+  default_prompt: "Use $torre-screen-applicants to rank applicants for my opening against my must-haves and propose decisions for my approval."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Find Matching Jobs"
+  short_description: "Jobs that fit a job seeker, with match reasons"
+  default_prompt: "Use $torre-find-matching-jobs to find Torre jobs that fit my profile and explain the top matches."

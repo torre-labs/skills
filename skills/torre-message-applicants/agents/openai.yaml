@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Message Applicants"
+  short_description: "Read and reply to applicant conversations"
+  default_prompt: "Use $torre-message-applicants to show unread applicant replies for my opening and draft responses for my approval."

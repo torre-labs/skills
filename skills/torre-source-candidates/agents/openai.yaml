@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Source Candidates"
+  short_description: "Align a job and shortlist matching candidates"
+  default_prompt: "Use $torre-source-candidates to confirm the opening criteria, align it if needed, search Torre and shortlist the best candidates with evidence."

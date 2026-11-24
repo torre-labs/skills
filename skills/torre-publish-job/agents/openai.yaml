@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Publish Job"
+  short_description: "Turn a job description into a published Torre opening"
+  default_prompt: "Use $torre-publish-job to create a Torre opening from this job description, list what is missing and publish it only after I approve."
