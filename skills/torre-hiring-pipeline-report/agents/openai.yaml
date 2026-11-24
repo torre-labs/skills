@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Hiring Pipeline Report"
+  short_description: "Weekly read-only report across open jobs"
+  default_prompt: "Use $torre-hiring-pipeline-report to write this week's hiring pipeline report across my Torre openings."

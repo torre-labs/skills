@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torre Sponsor Job"
+  short_description: "Quote sponsorship for an opening, activate only on approval"
+  default_prompt: "Use $torre-sponsor-job to quote sponsoring my opening and wait for my approval before spending anything."

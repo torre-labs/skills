@@ -1,0 +1,4 @@
+interface:
+  display_name: "Using Torre Recruiting Skills"
+  short_description: "Choose the right Torre recruiting skill for the task"
+  default_prompt: "Use $using-torre-recruiting-skills to check the Torre connection and decide which recruiting skill should handle this request."
