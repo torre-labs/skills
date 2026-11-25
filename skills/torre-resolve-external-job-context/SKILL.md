@@ -46,9 +46,13 @@ Prefer these signals in order:
 
 ### 3. Preserve trustworthy job content
 
-- When a fetchable `job_url` is present, Spider resolves and acquires that URL
-  first. Caller-provided `raw_html` and `raw_text` are auxiliary fallback
-  content if URL acquisition fails.
+- When only `job_url` is trustworthy, omit `source_preference` or use
+  `source_preference: "url"` so Spider acquires the current source.
+- When the canonical detail page was already captured through Chrome or another
+  trusted browser, send `source_preference: "provided"` with complete
+  `raw_html` or `raw_text`. Spider still resolves `job_url` for
+  canonicalization and deduplication, but uses the supplied evidence as the
+  source-ready snapshot.
 - Use `raw_html` when you can capture the canonical job page, especially when it includes structured job data such as JSON-LD.
 - Use `raw_text` only when it is the full role content or the best trustworthy source available.
 - Do not replace a readable canonical job page with a short summary, listing-card snippet, or rewritten text that omits role-critical evidence.
@@ -60,7 +64,8 @@ Prefer these signals in order:
 - Company-only request when only the company is trustworthy or the user only wants the company published
 - `job.resolve_and_publish` when the job still needs extraction or assembly
 - `job.direct_publish` only when the job payload is already Discovery-ready for
-  `SaveFullOpportunityDTO`
+  `SaveFullOpportunityDTO` before this workflow begins. Do not construct a
+  direct payload from captured source evidence as a resolver fallback.
 
 ### 5. Preserve provenance cleanly
 
@@ -77,6 +82,7 @@ Prefer these signals in order:
 | `company.input.careers_url` | Company or ATS careers surface |
 | `job.input.job_url` | Canonical role page |
 | `job.input.external_application_url` | Optional Torre-facing application URL override; `externalApplicationUrl` is also accepted |
+| `job.input.source_preference` | `provided` for complete trusted browser evidence; otherwise omit or use `url` |
 | `job.input.raw_html` | Trusted canonical page capture, including structured data when available |
 | `job.input.raw_text` | Full trusted role content when URL is weak or HTML is unavailable |
 | `job.input.crawled` | Optional boolean provenance flag; omit for API default `true` |
@@ -86,8 +92,8 @@ Prefer these signals in order:
 - Using `https://news.ycombinator.com/jobs` as a company or job URL
 - Using a YC directory page as the company website when the page exposes the real company website separately
 - Sending a board homepage as `job_url`
-- Sending a short `raw_text` summary while assuming it overrides a richer
-  readable `job_url`; Spider acquires the URL first
+- Sending browser-captured evidence without `source_preference: "provided"` and
+  assuming it overrides a readable `job_url`
 - Dropping JSON-LD or other structured job data from a captured page
 - Inventing `domain`, `linkedin`, or `torre_id`
 - Omitting the company-only path when the job is not trustworthy enough yet

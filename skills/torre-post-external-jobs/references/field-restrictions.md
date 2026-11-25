@@ -117,18 +117,22 @@ At least one of these must be present:
 - `title_hint`
 - `language_hint`
 - `sharer_gg_id`
+- `source_preference`
 - `crawled`
 - `metadata`
 
 ### Content precedence
 
-When a fetchable `job_url` is present, Spider fetches that URL first. It resolves
-clean redirects, uses the final URL as the canonical local job URL, and acquires
-the current source snapshot before extraction.
+`source_preference` accepts:
 
-`raw_html` and `raw_text` are fallback sources only when URL acquisition fails or when no fetchable `job_url` is present.
+- `url` (default): Spider resolves clean redirects, uses the final URL as the
+  canonical local job URL, and acquires the current source snapshot.
+- `provided`: requires non-empty `raw_html` or `raw_text`. Spider uses that
+  complete caller-provided evidence as the source snapshot while still
+  resolving `job_url` for canonicalization, deduplication, and application
+  routing.
 
-When no fetchable `job_url` is present, caller-provided content uses this order:
+Caller-provided content uses this order:
 
 1. `raw_html`
 2. `raw_text`
@@ -156,20 +160,20 @@ When an HTTP redirect chain is not clean:
 A page that returns `200` but requires a manual click, login, search, or form is
 not an HTTP redirect failure. Do not label it `redirect_not_acceptable` unless
 Spider returns that terminal reason. Treat it as an unverified wrapper and use
-a final role URL, complete fallback content, or `manual_review`.
+a final role URL, complete provided evidence, or `manual_review`.
 
 If manual content and `job_url` are both present:
 
-- Spider still acquires and extracts the current content from `job_url` first
-- manual content remains auxiliary fallback evidence if URL acquisition fails
+- use `source_preference: "url"` when Spider should fetch the current page
+- use `source_preference: "provided"` when a trusted browser already captured
+  the complete canonical detail page
 - `job_url` stays as the canonical local URL
 - `job_url` becomes the final external application URL unless `external_application_url` is explicitly supplied
 
-Manual fallback content must be complete enough to stand alone. Do not send a
+Provided content must be complete enough to stand alone. Do not send a
 short listing snippet, rewritten summary, or truncated description as
-`raw_text`. If URL acquisition fails, the fallback must still preserve
-role-critical evidence such as compensation, location, commitment,
-requirements, and application instructions.
+`raw_text`. It must preserve role-critical evidence such as compensation,
+location, commitment, requirements, and application instructions.
 
 When available, preserve structured job data such as JSON-LD in `raw_html` or source evidence. Prefer sending `raw_html` over summarized `raw_text` when the page includes structured salary, location, or employment fields.
 
@@ -199,8 +203,8 @@ When available, preserve structured job data such as JSON-LD in `raw_html` or so
 
 Treat this as a Discovery-ready `SaveFullOpportunityDTO`, not just a URL.
 Spider normalizes safe empty arrays for `members`, `languages`, `attachments`,
-and non-timezone `timezones`, but the agent should send the complete contract
-when building a direct fallback.
+and non-timezone `timezones`, but the caller must already supply the complete
+contract. Do not construct it from browser evidence as a resolver fallback.
 
 Required or expected fields:
 
@@ -239,8 +243,8 @@ Discovery accepts these detail codes: `benefits`, `stock-compensations`,
 
 ### Practical notes
 
-- Use this only when the opportunity payload is already Torre-ready.
-- When this is a fallback from `terminal_reason: "insufficient_strengths"`, include explicit source-backed `opportunity.strengths`. Do not submit an empty strengths array for that fallback path.
+- Use this only when the opportunity payload was already Torre-ready before the
+  publication workflow began.
 - Spider does not infer `subjectId` for `job.direct_publish`; it forwards the payload to Discovery. Set `publish_payload.subjectId` to the crawler-enabled direct-publish subject, preferably `1529406` (`torreBotCrawler`), unless another subject is explicitly confirmed as crawler-enabled.
 - Do not derive `subjectId` from the sharer or posting member. Keep the sharer in `job.publish_payload.opportunity.sharers`; using a non-crawler subject causes Discovery to reject the publish with `User is not an crawler`.
 - If the caller wants explicit sharer attribution in this strategy, use `job.publish_payload.opportunity.sharers`.
